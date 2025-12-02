@@ -75,6 +75,7 @@ defmodule Realtime.Application do
         {Registry, keys: :unique, name: Realtime.Registry.Unique},
         {Registry, keys: :unique, name: Realtime.Tenants.Connect.Registry},
         {Registry, keys: :unique, name: Extensions.PostgresCdcRls.ReplicationPoller.Registry},
+        {Registry, keys: :unique, name: Realtime.Music.Registry},
         {Registry,
          keys: :duplicate, partitions: System.schedulers_online() * 2, name: RealtimeWeb.SocketDisconnect.Registry},
         {Task.Supervisor, name: Realtime.TaskSupervisor},
@@ -97,7 +98,9 @@ defmodule Realtime.Application do
         {RealtimeWeb.RealtimeChannel.Tracker, check_interval_in_ms: no_channel_timeout_in_ms},
         RealtimeWeb.Endpoint,
         RealtimeWeb.Presence
-      ] ++ extensions_supervisors() ++ janitor_tasks()
+      ] ++ extensions_supervisors() ++ janitor_tasks() ++ [
+        Realtime.Music.SessionManager
+      ]
 
     database_connections = if master_region == region, do: [Realtime.Repo], else: []
 

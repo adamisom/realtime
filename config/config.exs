@@ -27,6 +27,10 @@ config :realtime, :extensions,
     driver: Extensions.PostgresCdcRls,
     supervisor: Extensions.PostgresCdcRls.Supervisor,
     db_settings: Extensions.PostgresCdcRls.DbSettings
+  },
+  music: %{
+    supervisor: Realtime.Music.Supervisor,
+    key: "music"
   }
 
 config :esbuild,
