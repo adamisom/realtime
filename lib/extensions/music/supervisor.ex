@@ -19,9 +19,24 @@ defmodule Realtime.Music.Supervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  # Placeholder - will be implemented in Phase 2
-  def start_tempo_server(_room_id, _bpm, _tenant_id) do
-    {:error, :not_implemented}
+  @doc """
+  Start a tempo server for a room.
+  """
+  def start_tempo_server(room_id, bpm, tenant_id) do
+    spec = {Realtime.Music.TempoServer, {room_id, bpm, tenant_id}}
+    DynamicSupervisor.start_child(__MODULE__, spec)
+  end
+
+  @doc """
+  Stop a tempo server for a room.
+  """
+  def stop_tempo_server(room_id, tenant_id) do
+    case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
+      [{pid, _}] -> 
+        DynamicSupervisor.terminate_child(__MODULE__, pid)
+      [] -> 
+        {:error, :not_found}
+    end
   end
 end
 
