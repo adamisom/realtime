@@ -30,7 +30,11 @@ config :realtime, :extensions,
   },
   music: %{
     supervisor: Realtime.Music.Supervisor,
-    key: "music"
+    key: "music",
+    rate_limit: %{
+      notes_per_second: 10,
+      teacher_notes_per_second: 50
+    }
   }
 
 config :esbuild,

@@ -103,6 +103,9 @@ defmodule RealtimeWeb.Router do
 
     post("/broadcast", BroadcastController, :broadcast)
     post("/music/reflections", MusicReflectionController, :create)
+    get("/music/rooms/:room_id/analytics", MusicAnalyticsController, :show)
+    get("/music/rooms/:room_id/participation", MusicAnalyticsController, :participation)
+    get("/music/rooms/:room_id/activity", MusicAnalyticsController, :activity)
   end
 
   # Enables LiveDashboard only for development

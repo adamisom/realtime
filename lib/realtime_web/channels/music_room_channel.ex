@@ -10,7 +10,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   """
   use RealtimeWeb, :channel
 
-  alias Realtime.Music.{TempoServer, SessionManager, SelTracker}
+  alias Realtime.Music.{TempoServer, SessionManager, SelTracker, RateLimiter}
   alias Realtime.Tenants
 
   require Logger
@@ -65,7 +65,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
             # Start tempo clock
             TempoServer.start_clock(room_id, tenant_id)
 
-            {:ok, %{room_id: room_id, bpm: room.bpm}, socket}
+            # Get current beat assignments and send to joining client
+            {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
+            socket = push(socket, "beat_assignments", %{assignments: assignments})
+
+            {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments}, socket}
 
           {:error, reason} ->
             {:error, %{reason: "Failed to join room: #{inspect(reason)}"}}
@@ -77,23 +81,44 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("play_note", %{"midi" => midi}, socket) do
-    # Log participation event
-    SelTracker.log_participation(
-      socket.assigns.room_id,
-      socket.assigns.tenant_id,
-      socket.assigns.student_id,
-      "note_played",
-      %{midi: midi}
-    )
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+    student_id = socket.assigns.student_id
+    
+    # Get rate limit based on role
+    max_per_second = if is_teacher?(socket) do
+      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:teacher_notes_per_second]
+    else
+      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
+    end
 
-    # Broadcast to all students in room
-    broadcast!(socket, "student_note", %{
-      midi: midi,
-      student_id: socket.assigns.student_id,
-      timestamp: System.system_time(:millisecond)
-    })
+    # Check rate limit
+    case RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
+      {:ok, :allowed} ->
+        # Record note play
+        RateLimiter.record_note_play(room_id, tenant_id, student_id)
+        
+        # Log participation event
+        SelTracker.log_participation(
+          room_id,
+          tenant_id,
+          student_id,
+          "note_played",
+          %{midi: midi}
+        )
 
-    {:noreply, socket}
+        # Broadcast to all students in room
+        broadcast!(socket, "student_note", %{
+          midi: midi,
+          student_id: student_id,
+          timestamp: System.system_time(:millisecond)
+        })
+
+        {:noreply, socket}
+      
+      {:error, :rate_limit_exceeded} ->
+        {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
+    end
   end
 
   def handle_in("play_note", _payload, socket) do
@@ -145,11 +170,25 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
   def handle_in("assign_beat", %{"student_id" => student_id, "beat" => beat}, socket) do
     if is_teacher?(socket) do
-      broadcast!(socket, "beat_assigned", %{
-        student_id: student_id,
-        beat: beat
-      })
-      {:reply, :ok, socket}
+      room_id = socket.assigns.room_id
+      
+      # Store assignment in SessionManager
+      case SessionManager.assign_beat(room_id, beat, student_id) do
+        :ok ->
+          # Get updated assignments
+          {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
+          
+          # Broadcast to all clients
+          broadcast!(socket, "beat_assignment_updated", %{
+            beat: beat,
+            student_id: student_id,
+            assignments: assignments
+          })
+          {:reply, :ok, socket}
+        
+        {:error, reason} ->
+          {:reply, {:error, %{reason: inspect(reason)}}, socket}
+      end
     else
       {:reply, {:error, %{reason: "unauthorized"}}, socket}
     end

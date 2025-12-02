@@ -99,7 +99,8 @@ defmodule Realtime.Application do
         RealtimeWeb.Endpoint,
         RealtimeWeb.Presence
       ] ++ extensions_supervisors() ++ janitor_tasks() ++ [
-        Realtime.Music.SessionManager
+        Realtime.Music.SessionManager,
+        Realtime.Music.RateLimiter
       ]
 
     database_connections = if master_region == region, do: [Realtime.Repo], else: []

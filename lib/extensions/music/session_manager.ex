@@ -50,6 +50,34 @@ defmodule Realtime.Music.SessionManager do
     GenServer.call(__MODULE__, {:close_room, room_id})
   end
 
+  @doc """
+  Assign a beat to a student.
+  """
+  def assign_beat(room_id, beat, student_id) do
+    GenServer.call(__MODULE__, {:assign_beat, room_id, beat, student_id})
+  end
+
+  @doc """
+  Get beat assignments for a room.
+  """
+  def get_beat_assignments(room_id) do
+    GenServer.call(__MODULE__, {:get_beat_assignments, room_id})
+  end
+
+  @doc """
+  Clear a beat assignment.
+  """
+  def clear_beat_assignment(room_id, beat) do
+    GenServer.call(__MODULE__, {:clear_beat_assignment, room_id, beat})
+  end
+
+  @doc """
+  Clear all beat assignments for a room.
+  """
+  def clear_all_assignments(room_id) do
+    GenServer.call(__MODULE__, {:clear_all_assignments, room_id})
+  end
+
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
@@ -76,7 +104,8 @@ defmodule Realtime.Music.SessionManager do
           teacher_id: teacher_id,
           bpm: bpm,
           created_at: System.system_time(:second),
-          students: []
+          students: [],
+          beat_assignments: %{}  # %{beat_number => student_id}
         }
         
         Logger.info("Created music room #{room_id} for teacher #{teacher_id} (tenant: #{tenant_id})")
@@ -135,6 +164,56 @@ defmodule Realtime.Music.SessionManager do
       
       nil ->
         {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:assign_beat, room_id, beat, student_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+      
+      room ->
+        beat_assignments = Map.put(room.beat_assignments, beat, student_id)
+        updated_room = %{room | beat_assignments: beat_assignments}
+        Logger.info("Assigned beat #{beat} to student #{student_id} in room #{room_id}")
+        {:reply, :ok, Map.put(state, room_id, updated_room)}
+    end
+  end
+
+  @impl true
+  def handle_call({:get_beat_assignments, room_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+      
+      room ->
+        {:reply, {:ok, room.beat_assignments}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:clear_beat_assignment, room_id, beat}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+      
+      room ->
+        beat_assignments = Map.delete(room.beat_assignments, beat)
+        updated_room = %{room | beat_assignments: beat_assignments}
+        {:reply, :ok, Map.put(state, room_id, updated_room)}
+    end
+  end
+
+  @impl true
+  def handle_call({:clear_all_assignments, room_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+      
+      room ->
+        updated_room = %{room | beat_assignments: %{}}
+        {:reply, :ok, Map.put(state, room_id, updated_room)}
     end
   end
 
