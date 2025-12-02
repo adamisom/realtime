@@ -27,41 +27,46 @@ defmodule RealtimeWeb.MusicRoomChannel do
     # Validate room exists
     case SessionManager.get_room(room_id) do
       {:ok, room} ->
-        socket =
-          socket
-          |> assign(:room_id, room_id)
-          |> assign(:tenant_id, tenant_id)
-          |> assign(:student_id, params["student_id"])
-          |> assign(:role, params["role"] || "student")
+        student_id = params["student_id"]
+        
+        # Join room (track student)
+        case SessionManager.join_room(room_id, student_id) do
+          :ok ->
+            socket =
+              socket
+              |> assign(:room_id, room_id)
+              |> assign(:tenant_id, tenant_id)
+              |> assign(:student_id, student_id)
+              |> assign(:role, params["role"] || "student")
 
-        # Start tempo server if not already running
-        case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
-          [] ->
-            # Start tempo server with room's BPM
-            case Realtime.Music.Supervisor.start_tempo_server(room_id, room.bpm, tenant_id) do
-              {:ok, _pid} -> :ok
-              error -> Logger.warning("Failed to start tempo server: #{inspect(error)}")
+            # Start tempo server if not already running
+            case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
+              [] ->
+                # Start tempo server with room's BPM
+                case Realtime.Music.Supervisor.start_tempo_server(room_id, room.bpm, tenant_id) do
+                  {:ok, _pid} -> :ok
+                  error -> Logger.warning("Failed to start tempo server: #{inspect(error)}")
+                end
+
+              _ ->
+                :ok
             end
 
-          _ ->
-            :ok
+            # Subscribe to beat events from tempo server
+            tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
+            Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
+
+            # Start tempo clock
+            TempoServer.start_clock(room_id, tenant_id)
+
+            {:ok, %{room_id: room_id, bpm: room.bpm}, socket}
+
+          {:error, reason} ->
+            {:error, %{reason: "Failed to join room: #{inspect(reason)}"}}
         end
-
-        # Subscribe to beat events from tempo server
-        tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
-        Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
-
-        # Start tempo clock
-        TempoServer.start_clock(room_id, tenant_id)
-
-        {:ok, %{room_id: room_id, bpm: room.bpm}, socket}
 
       {:error, :not_found} ->
         {:error, %{reason: "Room not found"}}
-
-      {:error, :not_implemented} ->
-        # SessionManager not implemented yet (Phase 4)
-        {:error, %{reason: "Session management not available"}}
     end
   end
 
