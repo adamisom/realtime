@@ -15,6 +15,12 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
   require Logger
 
+  ## Private Helpers
+
+  defp is_teacher?(socket) do
+    socket.assigns.role == "teacher"
+  end
+
   @doc """
   Join a music room.
   
@@ -30,7 +36,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
         student_id = params["student_id"]
         
         # Join room (track student)
-        case SessionManager.join_room(room_id, student_id) do
+        case SessionManager.join_room(room_id, tenant_id, student_id) do
           :ok ->
             socket =
               socket
@@ -96,7 +102,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("set_tempo", %{"bpm" => bpm}, socket) when is_integer(bpm) do
-    if socket.assigns.role == "teacher" do
+    if is_teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -129,7 +135,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("mute_student", %{"student_id" => student_id}, socket) do
-    if socket.assigns.role == "teacher" do
+    if is_teacher?(socket) do
       broadcast!(socket, "student_muted", %{student_id: student_id})
       {:reply, :ok, socket}
     else
@@ -138,7 +144,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("assign_beat", %{"student_id" => student_id, "beat" => beat}, socket) do
-    if socket.assigns.role == "teacher" do
+    if is_teacher?(socket) do
       broadcast!(socket, "beat_assigned", %{
         student_id: student_id,
         beat: beat

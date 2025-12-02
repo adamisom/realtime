@@ -82,7 +82,7 @@ defmodule Realtime.Music.SessionManagerTest do
     end
   end
 
-  describe "join_room/2" do
+  describe "join_room/3" do
     test "adds student to room" do
       tenant_id = "test-tenant-#{System.unique_integer([:positive])}"
       teacher_id = "teacher-1"
@@ -90,7 +90,7 @@ defmodule Realtime.Music.SessionManagerTest do
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
       
-      assert :ok = SessionManager.join_room(room_id, student_id)
+      assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)
       
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert student_id in room.students
@@ -102,9 +102,9 @@ defmodule Realtime.Music.SessionManagerTest do
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
       
-      assert :ok = SessionManager.join_room(room_id, "student-1")
-      assert :ok = SessionManager.join_room(room_id, "student-2")
-      assert :ok = SessionManager.join_room(room_id, "student-3")
+      assert :ok = SessionManager.join_room(room_id, tenant_id, "student-1")
+      assert :ok = SessionManager.join_room(room_id, tenant_id, "student-2")
+      assert :ok = SessionManager.join_room(room_id, tenant_id, "student-3")
       
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert length(room.students) == 3
@@ -120,8 +120,8 @@ defmodule Realtime.Music.SessionManagerTest do
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
       
-      assert :ok = SessionManager.join_room(room_id, student_id)
-      assert :ok = SessionManager.join_room(room_id, student_id)  # Join again
+      assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)
+      assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)  # Join again
       
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert length(room.students) == 1
@@ -129,7 +129,20 @@ defmodule Realtime.Music.SessionManagerTest do
     end
 
     test "returns error for non-existent room" do
-      assert {:error, :not_found} = SessionManager.join_room("NONEXISTENT", "student-1")
+      tenant_id = "test-tenant-#{System.unique_integer([:positive])}"
+      assert {:error, :not_found} = SessionManager.join_room("NONEXISTENT", tenant_id, "student-1")
+    end
+
+    test "returns error when tenant_id does not match" do
+      tenant_id1 = "test-tenant-#{System.unique_integer([:positive])}"
+      tenant_id2 = "test-tenant-#{System.unique_integer([:positive])}"
+      teacher_id = "teacher-1"
+      student_id = "student-1"
+
+      {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id1)
+      
+      # Try to join with different tenant_id
+      assert {:error, :not_found} = SessionManager.join_room(room_id, tenant_id2, student_id)
     end
   end
 

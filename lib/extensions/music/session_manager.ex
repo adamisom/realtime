@@ -36,9 +36,11 @@ defmodule Realtime.Music.SessionManager do
 
   @doc """
   Join a room.
+  
+  ⚠️ CRITICAL: Requires tenant_id for proper multi-tenant isolation
   """
-  def join_room(room_id, student_id) do
-    GenServer.call(__MODULE__, {:join_room, room_id, student_id})
+  def join_room(room_id, tenant_id, student_id) do
+    GenServer.call(__MODULE__, {:join_room, room_id, tenant_id, student_id})
   end
 
   @doc """
@@ -97,22 +99,27 @@ defmodule Realtime.Music.SessionManager do
   end
 
   @impl true
-  def handle_call({:join_room, room_id, student_id}, _from, state) do
+  def handle_call({:join_room, room_id, tenant_id, student_id}, _from, state) do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
       
       room ->
-        # Add student to room if not already present
-        students = if student_id in room.students do
-          room.students
+        # Verify tenant_id matches (multi-tenant isolation)
+        if room.tenant_id != tenant_id do
+          {:reply, {:error, :not_found}, state}
         else
-          [student_id | room.students]
+          # Add student to room if not already present
+          students = if student_id in room.students do
+            room.students
+          else
+            [student_id | room.students]
+          end
+          
+          updated_room = %{room | students: students}
+          Logger.info("Student #{student_id} joined room #{room_id} (tenant: #{tenant_id})")
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
         end
-        
-        updated_room = %{room | students: students}
-        Logger.info("Student #{student_id} joined room #{room_id}")
-        {:reply, :ok, Map.put(state, room_id, updated_room)}
     end
   end
 
