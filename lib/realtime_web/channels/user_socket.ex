@@ -22,6 +22,7 @@ defmodule RealtimeWeb.UserSocket do
   alias RealtimeWeb.RealtimeChannel.Logging
   ## Channels
   channel "realtime:*", RealtimeChannel
+  channel "music_room:*", RealtimeWeb.MusicRoomChannel
 
   @default_log_level :error
 
