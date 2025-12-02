@@ -1,7 +1,7 @@
 defmodule RealtimeWeb.MusicRoomChannel do
   @moduledoc """
   Phoenix Channel for collaborative music rooms.
-  
+
   Handles:
   - Student connections
   - Note broadcasting
@@ -23,7 +23,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
   @doc """
   Join a music room.
-  
+
   Channel topic format: "music_room:ROOM_CODE"
   Example: "music_room:MUSIC-2024"
   """
@@ -34,7 +34,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
     case SessionManager.get_room(room_id) do
       {:ok, room} ->
         student_id = params["student_id"]
-        
+
         # Join room (track student)
         case SessionManager.join_room(room_id, tenant_id, student_id) do
           :ok ->
@@ -84,20 +84,21 @@ defmodule RealtimeWeb.MusicRoomChannel do
     room_id = socket.assigns.room_id
     tenant_id = socket.assigns.tenant_id
     student_id = socket.assigns.student_id
-    
+
     # Get rate limit based on role
-    max_per_second = if is_teacher?(socket) do
-      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:teacher_notes_per_second]
-    else
-      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
-    end
+    max_per_second =
+      if is_teacher?(socket) do
+        Application.get_env(:realtime, :extensions)[:music][:rate_limit][:teacher_notes_per_second]
+      else
+        Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
+      end
 
     # Check rate limit
     case RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
       {:ok, :allowed} ->
         # Record note play
         RateLimiter.record_note_play(room_id, tenant_id, student_id)
-        
+
         # Log participation event
         SelTracker.log_participation(
           room_id,
@@ -115,7 +116,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
         })
 
         {:noreply, socket}
-      
+
       {:error, :rate_limit_exceeded} ->
         {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
     end
@@ -171,21 +172,22 @@ defmodule RealtimeWeb.MusicRoomChannel do
   def handle_in("assign_beat", %{"student_id" => student_id, "beat" => beat}, socket) do
     if is_teacher?(socket) do
       room_id = socket.assigns.room_id
-      
+
       # Store assignment in SessionManager
       case SessionManager.assign_beat(room_id, beat, student_id) do
         :ok ->
           # Get updated assignments
           {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
-          
+
           # Broadcast to all clients
           broadcast!(socket, "beat_assignment_updated", %{
             beat: beat,
             student_id: student_id,
             assignments: assignments
           })
+
           {:reply, :ok, socket}
-        
+
         {:error, reason} ->
           {:reply, {:error, %{reason: inspect(reason)}}, socket}
       end
@@ -204,4 +206,3 @@ defmodule RealtimeWeb.MusicRoomChannel do
     {:noreply, socket}
   end
 end
-

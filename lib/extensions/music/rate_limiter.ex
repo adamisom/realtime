@@ -1,7 +1,7 @@
 defmodule Realtime.Music.RateLimiter do
   @moduledoc """
   Rate limiter for music room note plays.
-  
+
   Uses a sliding window algorithm to track note plays per student per room.
   """
   use GenServer
@@ -9,26 +9,27 @@ defmodule Realtime.Music.RateLimiter do
   require Logger
 
   ## Client API
-  
+
   @doc """
   Check if a note play is allowed for a student in a room.
-  
+
   Returns: {:ok, :allowed} or {:error, :rate_limit_exceeded}
   """
   def check_rate_limit(room_id, tenant_id, student_id, max_per_second \\ 10) do
     key = {room_id, tenant_id, student_id}
-    
+
     case :ets.lookup(__MODULE__, key) do
       [] ->
         {:ok, :allowed}
-      
+
       [{^key, timestamps}] ->
         now = System.system_time(:millisecond)
-        window_start = now - 1000  # Last 1 second
-        
+        # Last 1 second
+        window_start = now - 1000
+
         # Filter timestamps within the window
         recent_timestamps = Enum.filter(timestamps, fn ts -> ts >= window_start end)
-        
+
         if length(recent_timestamps) >= max_per_second do
           {:error, :rate_limit_exceeded}
         else
@@ -43,18 +44,18 @@ defmodule Realtime.Music.RateLimiter do
   def record_note_play(room_id, tenant_id, student_id) do
     key = {room_id, tenant_id, student_id}
     now = System.system_time(:millisecond)
-    
+
     # Update ETS table with new timestamp
     case :ets.lookup(__MODULE__, key) do
       [] ->
         :ets.insert(__MODULE__, {key, [now]})
-      
+
       [{^key, timestamps}] ->
         # Add new timestamp and keep only last 100 (to prevent unbounded growth)
         new_timestamps = [now | timestamps] |> Enum.take(100)
         :ets.insert(__MODULE__, {key, new_timestamps})
     end
-    
+
     :ok
   end
 
@@ -72,10 +73,10 @@ defmodule Realtime.Music.RateLimiter do
     # Create ETS table for storing rate limit data
     # Public table so channel processes can access it
     :ets.new(__MODULE__, [:set, :public, :named_table])
-    
+
     # Schedule periodic cleanup of old entries
     schedule_cleanup()
-    
+
     {:ok, %{}}
   end
 
@@ -83,13 +84,14 @@ defmodule Realtime.Music.RateLimiter do
   def handle_info(:cleanup, state) do
     # Clean up entries older than 1 minute (no activity)
     now = System.system_time(:millisecond)
-    cutoff = now - 60_000  # 1 minute ago
-    
+    # 1 minute ago
+    cutoff = now - 60_000
+
     :ets.foldl(
       fn {key, timestamps}, _acc ->
         # Filter out old timestamps
         recent_timestamps = Enum.filter(timestamps, fn ts -> ts >= cutoff end)
-        
+
         if length(recent_timestamps) == 0 do
           # Remove entry if no recent timestamps
           :ets.delete(__MODULE__, key)
@@ -101,7 +103,7 @@ defmodule Realtime.Music.RateLimiter do
       :ok,
       __MODULE__
     )
-    
+
     schedule_cleanup()
     {:noreply, state}
   end
@@ -113,4 +115,3 @@ defmodule Realtime.Music.RateLimiter do
     Process.send_after(self(), :cleanup, 30_000)
   end
 end
-

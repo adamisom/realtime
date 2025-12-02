@@ -26,4 +26,3 @@ defmodule Realtime.Music.Schemas.ParticipationEvent do
     |> validate_required([:room_id, :tenant_id, :student_id, :event_type, :timestamp])
   end
 end
-

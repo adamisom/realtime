@@ -58,4 +58,3 @@ defmodule RealtimeWeb.MusicRoomChannelTest do
     end
   end
 end
-

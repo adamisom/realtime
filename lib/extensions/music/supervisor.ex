@@ -32,11 +32,11 @@ defmodule Realtime.Music.Supervisor do
   """
   def stop_tempo_server(room_id, tenant_id) do
     case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
-      [{pid, _}] -> 
+      [{pid, _}] ->
         DynamicSupervisor.terminate_child(__MODULE__, pid)
-      [] -> 
+
+      [] ->
         {:error, :not_found}
     end
   end
 end
-

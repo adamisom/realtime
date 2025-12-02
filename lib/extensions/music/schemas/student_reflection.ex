@@ -26,4 +26,3 @@ defmodule Realtime.Music.Schemas.StudentReflection do
     |> validate_required([:room_id, :tenant_id, :student_id, :reflection_text])
   end
 end
-

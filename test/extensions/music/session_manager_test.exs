@@ -16,7 +16,8 @@ defmodule Realtime.Music.SessionManagerTest do
 
       assert {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id, bpm: 120)
       assert String.starts_with?(room_id, "MUSIC-")
-      assert String.length(room_id) == 10  # "MUSIC-####"
+      # "MUSIC-####"
+      assert String.length(room_id) == 10
     end
 
     test "creates room with custom BPM" do
@@ -24,7 +25,7 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       assert {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id, bpm: 140)
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert room.bpm == 140
     end
@@ -34,7 +35,7 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       assert {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert room.bpm == 120
     end
@@ -44,7 +45,7 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       assert {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert room.tenant_id == tenant_id
       assert room.teacher_id == teacher_id
@@ -55,7 +56,7 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       assert {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id, bpm: 120)
-      
+
       # Verify tempo server is running
       assert [{_pid, nil}] = Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id})
     end
@@ -67,7 +68,7 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id, bpm: 120)
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert room.room_id == room_id
       assert room.teacher_id == teacher_id
@@ -89,9 +90,9 @@ defmodule Realtime.Music.SessionManagerTest do
       student_id = "student-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert student_id in room.students
     end
@@ -101,11 +102,11 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       assert :ok = SessionManager.join_room(room_id, tenant_id, "student-1")
       assert :ok = SessionManager.join_room(room_id, tenant_id, "student-2")
       assert :ok = SessionManager.join_room(room_id, tenant_id, "student-3")
-      
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert length(room.students) == 3
       assert "student-1" in room.students
@@ -119,10 +120,11 @@ defmodule Realtime.Music.SessionManagerTest do
       student_id = "student-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)
-      assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)  # Join again
-      
+      # Join again
+      assert :ok = SessionManager.join_room(room_id, tenant_id, student_id)
+
       assert {:ok, room} = SessionManager.get_room(room_id)
       assert length(room.students) == 1
       assert student_id in room.students
@@ -140,7 +142,7 @@ defmodule Realtime.Music.SessionManagerTest do
       student_id = "student-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id1)
-      
+
       # Try to join with different tenant_id
       assert {:error, :not_found} = SessionManager.join_room(room_id, tenant_id2, student_id)
     end
@@ -152,17 +154,18 @@ defmodule Realtime.Music.SessionManagerTest do
       teacher_id = "teacher-1"
 
       {:ok, room_id} = SessionManager.create_room(teacher_id, tenant_id)
-      
+
       # Verify tempo server is running
       assert [{_pid, nil}] = Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id})
-      
+
       assert :ok = SessionManager.close_room(room_id)
-      
+
       # Verify room is gone
       assert {:error, :not_found} = SessionManager.get_room(room_id)
-      
+
       # Verify tempo server is stopped
-      Process.sleep(100)  # Give it time to stop
+      # Give it time to stop
+      Process.sleep(100)
       assert Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) == []
     end
 

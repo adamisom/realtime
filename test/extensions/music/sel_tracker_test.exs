@@ -21,8 +21,9 @@ defmodule Realtime.Music.SelTrackerTest do
       assert :ok = SelTracker.log_participation(room_id, tenant_id, student_id, event_type, event_data)
 
       # Verify event was saved
-      query = from e in Realtime.Music.Schemas.ParticipationEvent,
-        where: e.room_id == ^room_id and e.student_id == ^student_id
+      query =
+        from e in Realtime.Music.Schemas.ParticipationEvent,
+          where: e.room_id == ^room_id and e.student_id == ^student_id
 
       assert [event] = Realtime.Repo.all(query)
       assert event.room_id == room_id
@@ -43,8 +44,9 @@ defmodule Realtime.Music.SelTrackerTest do
 
       assert :ok = SelTracker.log_participation(room_id, tenant_id, teacher_id, event_type, event_data)
 
-      query = from e in Realtime.Music.Schemas.ParticipationEvent,
-        where: e.room_id == ^room_id and e.event_type == ^event_type
+      query =
+        from e in Realtime.Music.Schemas.ParticipationEvent,
+          where: e.room_id == ^room_id and e.event_type == ^event_type
 
       assert [event] = Realtime.Repo.all(query)
       # JSONB stores maps with string keys
@@ -64,8 +66,9 @@ defmodule Realtime.Music.SelTrackerTest do
       assert :ok = SelTracker.log_reflection(room_id, tenant_id, student_id, reflection_text, reflection_type, metadata)
 
       # Verify reflection was saved
-      query = from r in Realtime.Music.Schemas.StudentReflection,
-        where: r.room_id == ^room_id and r.student_id == ^student_id
+      query =
+        from r in Realtime.Music.Schemas.StudentReflection,
+          where: r.room_id == ^room_id and r.student_id == ^student_id
 
       assert [reflection] = Realtime.Repo.all(query)
       assert reflection.room_id == room_id
@@ -85,12 +88,12 @@ defmodule Realtime.Music.SelTrackerTest do
 
       assert :ok = SelTracker.log_reflection(room_id, tenant_id, student_id, reflection_text)
 
-      query = from r in Realtime.Music.Schemas.StudentReflection,
-        where: r.room_id == ^room_id
+      query =
+        from r in Realtime.Music.Schemas.StudentReflection,
+          where: r.room_id == ^room_id
 
       assert [reflection] = Realtime.Repo.all(query)
       assert reflection.reflection_type == "post_session"
     end
   end
 end
-

@@ -7,8 +7,10 @@ defmodule Realtime.Repo.Migrations.CreateMusicSelTables do
       add(:room_id, :string, null: false)
       add(:tenant_id, :string, null: false)
       add(:student_id, :string, null: false)
-      add(:event_type, :string, null: false)  # "note_played", "tempo_changed", etc.
-      add(:event_data, :map)  # JSONB for flexible event data
+      # "note_played", "tempo_changed", etc.
+      add(:event_type, :string, null: false)
+      # JSONB for flexible event data
+      add(:event_data, :map)
       add(:timestamp, :utc_datetime, null: false)
 
       timestamps()
@@ -24,8 +26,10 @@ defmodule Realtime.Repo.Migrations.CreateMusicSelTables do
       add(:tenant_id, :string, null: false)
       add(:student_id, :string, null: false)
       add(:reflection_text, :text, null: false)
-      add(:reflection_type, :string)  # "post_session", "mid_session", etc.
-      add(:metadata, :map)  # JSONB for additional data
+      # "post_session", "mid_session", etc.
+      add(:reflection_type, :string)
+      # JSONB for additional data
+      add(:metadata, :map)
 
       timestamps()
     end

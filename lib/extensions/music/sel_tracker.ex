@@ -1,7 +1,7 @@
 defmodule Realtime.Music.SelTracker do
   @moduledoc """
   Social-Emotional Learning (SEL) data tracker for music extension.
-  
+
   Tracks:
   - Participation events (note plays, tempo changes, etc.)
   - Student reflections
@@ -12,9 +12,9 @@ defmodule Realtime.Music.SelTracker do
 
   @doc """
   Log a participation event.
-  
+
   ## Examples
-  
+
       iex> log_participation("MUSIC-1234", "tenant-1", "student-1", "note_played", %{midi: 60})
       :ok
   """
@@ -32,7 +32,9 @@ defmodule Realtime.Music.SelTracker do
     |> Realtime.Music.Schemas.ParticipationEvent.changeset(attrs)
     |> Repo.insert()
     |> case do
-      {:ok, _event} -> :ok
+      {:ok, _event} ->
+        :ok
+
       {:error, changeset} ->
         Logger.error("Failed to log participation event: #{inspect(changeset.errors)}")
         :error
@@ -41,13 +43,20 @@ defmodule Realtime.Music.SelTracker do
 
   @doc """
   Log a student reflection.
-  
+
   ## Examples
-  
+
       iex> log_reflection("MUSIC-1234", "tenant-1", "student-1", "I enjoyed playing with others", "post_session")
       :ok
   """
-  def log_reflection(room_id, tenant_id, student_id, reflection_text, reflection_type \\ "post_session", metadata \\ %{}) do
+  def log_reflection(
+        room_id,
+        tenant_id,
+        student_id,
+        reflection_text,
+        reflection_type \\ "post_session",
+        metadata \\ %{}
+      ) do
     attrs = %{
       room_id: room_id,
       tenant_id: tenant_id,
@@ -61,11 +70,12 @@ defmodule Realtime.Music.SelTracker do
     |> Realtime.Music.Schemas.StudentReflection.changeset(attrs)
     |> Repo.insert()
     |> case do
-      {:ok, _reflection} -> :ok
+      {:ok, _reflection} ->
+        :ok
+
       {:error, changeset} ->
         Logger.error("Failed to log reflection: #{inspect(changeset.errors)}")
         :error
     end
   end
 end
-

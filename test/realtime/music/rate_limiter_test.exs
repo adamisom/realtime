@@ -7,7 +7,7 @@ defmodule Realtime.Music.RateLimiterTest do
     # RateLimiter is started by the application supervisor
     # Clear ETS table between tests
     :ets.delete_all_objects(RateLimiter)
-    
+
     :ok
   end
 
@@ -32,7 +32,8 @@ defmodule Realtime.Music.RateLimiterTest do
       end)
 
       # 6th note should be rejected
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
     end
 
     test "allows note play after time window passes" do
@@ -46,7 +47,8 @@ defmodule Realtime.Music.RateLimiterTest do
       RateLimiter.record_note_play(room_id, tenant_id, student_id)
 
       # Should be at limit
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
 
       # Wait 1.1 seconds (just over the window)
       Process.sleep(1100)
@@ -63,7 +65,7 @@ defmodule Realtime.Music.RateLimiterTest do
       student_id = "student-4"
 
       assert :ok = RateLimiter.record_note_play(room_id, tenant_id, student_id)
-      
+
       # After recording, check should still allow (only 1 note)
       assert {:ok, :allowed} = RateLimiter.check_rate_limit(room_id, tenant_id, student_id, 10)
     end
@@ -78,7 +80,8 @@ defmodule Realtime.Music.RateLimiterTest do
       RateLimiter.record_note_play(room_id, tenant_id, "student-5")
 
       # Student 1 should be at limit
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit(room_id, tenant_id, "student-5", max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit(room_id, tenant_id, "student-5", max_per_second)
 
       # Student 2 should still be allowed
       assert {:ok, :allowed} = RateLimiter.check_rate_limit(room_id, tenant_id, "student-6", max_per_second)
@@ -94,7 +97,8 @@ defmodule Realtime.Music.RateLimiterTest do
       RateLimiter.record_note_play("room-4", tenant_id, student_id)
 
       # Should be at limit in room-4
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit("room-4", tenant_id, student_id, max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit("room-4", tenant_id, student_id, max_per_second)
 
       # Should still be allowed in room-5
       assert {:ok, :allowed} = RateLimiter.check_rate_limit("room-5", tenant_id, student_id, max_per_second)
@@ -110,7 +114,8 @@ defmodule Realtime.Music.RateLimiterTest do
       RateLimiter.record_note_play(room_id, "tenant-1", student_id)
 
       # Should be at limit in tenant-1
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit(room_id, "tenant-1", student_id, max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit(room_id, "tenant-1", student_id, max_per_second)
 
       # Should still be allowed in tenant-2
       assert {:ok, :allowed} = RateLimiter.check_rate_limit(room_id, "tenant-2", student_id, max_per_second)
@@ -134,8 +139,8 @@ defmodule Realtime.Music.RateLimiterTest do
       end)
 
       # 4th should be rejected
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
+      assert {:error, :rate_limit_exceeded} =
+               RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second)
     end
   end
 end
-

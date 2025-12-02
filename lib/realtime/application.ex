@@ -98,10 +98,13 @@ defmodule Realtime.Application do
         {RealtimeWeb.RealtimeChannel.Tracker, check_interval_in_ms: no_channel_timeout_in_ms},
         RealtimeWeb.Endpoint,
         RealtimeWeb.Presence
-      ] ++ extensions_supervisors() ++ janitor_tasks() ++ [
-        Realtime.Music.SessionManager,
-        Realtime.Music.RateLimiter
-      ]
+      ] ++
+        extensions_supervisors() ++
+        janitor_tasks() ++
+        [
+          Realtime.Music.SessionManager,
+          Realtime.Music.RateLimiter
+        ]
 
     database_connections = if master_region == region, do: [Realtime.Repo], else: []
 

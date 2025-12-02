@@ -32,4 +32,3 @@ defmodule RealtimeWeb.MusicReflectionController do
     |> json(%{status: "error", message: "Missing required fields: room_id, student_id, reflection_text"})
   end
 end
-

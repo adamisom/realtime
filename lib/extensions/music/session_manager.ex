@@ -1,7 +1,7 @@
 defmodule Realtime.Music.SessionManager do
   @moduledoc """
   Manages music room sessions.
-  
+
   Handles:
   - Room creation
   - Join code generation
@@ -15,12 +15,12 @@ defmodule Realtime.Music.SessionManager do
   alias Realtime.Music.Supervisor
 
   ## Client API
-  
+
   @doc """
   Create a new music room.
-  
+
   ⚠️ CRITICAL: Requires tenant_id - see Roadblock #2
-  
+
   Returns: {:ok, room_id} where room_id is a unique join code
   """
   def create_room(teacher_id, tenant_id, opts \\ []) do
@@ -36,7 +36,7 @@ defmodule Realtime.Music.SessionManager do
 
   @doc """
   Join a room.
-  
+
   ⚠️ CRITICAL: Requires tenant_id for proper multi-tenant isolation
   """
   def join_room(room_id, tenant_id, student_id) do
@@ -83,7 +83,7 @@ defmodule Realtime.Music.SessionManager do
   end
 
   ## Server Callbacks
-  
+
   @impl true
   def init(_) do
     # State: %{room_id => %{teacher_id, tenant_id, bpm, created_at, students}}
@@ -94,7 +94,7 @@ defmodule Realtime.Music.SessionManager do
   def handle_call({:create_room, teacher_id, tenant_id, opts}, _from, state) do
     room_id = generate_join_code(state)
     bpm = Keyword.get(opts, :bpm, 120)
-    
+
     # Start tempo server with tenant_id
     case Supervisor.start_tempo_server(room_id, bpm, tenant_id) do
       {:ok, _pid} ->
@@ -105,12 +105,13 @@ defmodule Realtime.Music.SessionManager do
           bpm: bpm,
           created_at: System.system_time(:second),
           students: [],
-          beat_assignments: %{}  # %{beat_number => student_id}
+          # %{beat_number => student_id}
+          beat_assignments: %{}
         }
-        
+
         Logger.info("Created music room #{room_id} for teacher #{teacher_id} (tenant: #{tenant_id})")
         {:reply, {:ok, room_id}, Map.put(state, room_id, room)}
-      
+
       error ->
         Logger.error("Failed to start tempo server for room #{room_id}: #{inspect(error)}")
         {:reply, {:error, error}, state}
@@ -120,9 +121,10 @@ defmodule Realtime.Music.SessionManager do
   @impl true
   def handle_call({:get_room, room_id}, _from, state) do
     case Map.get(state, room_id) do
-      nil -> 
+      nil ->
         {:reply, {:error, :not_found}, state}
-      room -> 
+
+      room ->
         {:reply, {:ok, room}, state}
     end
   end
@@ -132,19 +134,20 @@ defmodule Realtime.Music.SessionManager do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
-      
+
       room ->
         # Verify tenant_id matches (multi-tenant isolation)
         if room.tenant_id != tenant_id do
           {:reply, {:error, :not_found}, state}
         else
           # Add student to room if not already present
-          students = if student_id in room.students do
-            room.students
-          else
-            [student_id | room.students]
-          end
-          
+          students =
+            if student_id in room.students do
+              room.students
+            else
+              [student_id | room.students]
+            end
+
           updated_room = %{room | students: students}
           Logger.info("Student #{student_id} joined room #{room_id} (tenant: #{tenant_id})")
           {:reply, :ok, Map.put(state, room_id, updated_room)}
@@ -161,7 +164,7 @@ defmodule Realtime.Music.SessionManager do
         Supervisor.stop_tempo_server(room_id, tenant_id)
         Logger.info("Closed music room #{room_id}")
         {:reply, :ok, Map.delete(state, room_id)}
-      
+
       nil ->
         {:reply, {:error, :not_found}, state}
     end
@@ -172,7 +175,7 @@ defmodule Realtime.Music.SessionManager do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
-      
+
       room ->
         beat_assignments = Map.put(room.beat_assignments, beat, student_id)
         updated_room = %{room | beat_assignments: beat_assignments}
@@ -186,7 +189,7 @@ defmodule Realtime.Music.SessionManager do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
-      
+
       room ->
         {:reply, {:ok, room.beat_assignments}, state}
     end
@@ -197,7 +200,7 @@ defmodule Realtime.Music.SessionManager do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
-      
+
       room ->
         beat_assignments = Map.delete(room.beat_assignments, beat)
         updated_room = %{room | beat_assignments: beat_assignments}
@@ -210,7 +213,7 @@ defmodule Realtime.Music.SessionManager do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
-      
+
       room ->
         updated_room = %{room | beat_assignments: %{}}
         {:reply, :ok, Map.put(state, room_id, updated_room)}
@@ -218,16 +221,16 @@ defmodule Realtime.Music.SessionManager do
   end
 
   ## Private Functions
-  
+
   # Check for duplicates to prevent collisions
   defp generate_join_code(state) do
     code = "MUSIC-#{:rand.uniform(9999) |> Integer.to_string() |> String.pad_leading(4, "0")}"
-    
+
     if Map.has_key?(state, code) do
-      generate_join_code(state)  # Retry if collision
+      # Retry if collision
+      generate_join_code(state)
     else
       code
     end
   end
 end
-
