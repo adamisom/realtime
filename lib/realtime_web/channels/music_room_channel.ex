@@ -10,7 +10,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   """
   use RealtimeWeb, :channel
 
-  alias Realtime.Music.{TempoServer, SessionManager}
+  alias Realtime.Music.{TempoServer, SessionManager, SelTracker}
   alias Realtime.Tenants
 
   require Logger
@@ -71,6 +71,15 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("play_note", %{"midi" => midi}, socket) do
+    # Log participation event
+    SelTracker.log_participation(
+      socket.assigns.room_id,
+      socket.assigns.tenant_id,
+      socket.assigns.student_id,
+      "note_played",
+      %{midi: midi}
+    )
+
     # Broadcast to all students in room
     broadcast!(socket, "student_note", %{
       midi: midi,
@@ -94,6 +103,15 @@ defmodule RealtimeWeb.MusicRoomChannel do
       # Update tempo server
       case TempoServer.set_tempo(room_id, tenant_id, bpm) do
         :ok ->
+          # Log teacher action
+          SelTracker.log_participation(
+            room_id,
+            tenant_id,
+            socket.assigns.student_id,
+            "tempo_changed",
+            %{bpm: bpm, changed_by: "teacher"}
+          )
+
           # Broadcast to all students
           broadcast!(socket, "tempo_changed", %{bpm: bpm})
           {:reply, :ok, socket}

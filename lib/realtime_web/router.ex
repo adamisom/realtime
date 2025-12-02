@@ -102,6 +102,7 @@ defmodule RealtimeWeb.Router do
     pipe_through([:open_cors, :tenant_api, :secure_tenant_api])
 
     post("/broadcast", BroadcastController, :broadcast)
+    post("/music/reflections", MusicReflectionController, :create)
   end
 
   # Enables LiveDashboard only for development
