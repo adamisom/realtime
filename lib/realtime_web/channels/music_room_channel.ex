@@ -211,6 +211,82 @@ defmodule RealtimeWeb.MusicRoomChannel do
     end
   end
 
+  def handle_in("start_turn_rotation", %{"student_ids" => student_ids, "duration_seconds" => duration}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      case SessionManager.start_turn_rotation(room_id, tenant_id, student_ids, duration) do
+        :ok ->
+          broadcast!(socket, "turn_rotation_started", %{student_ids: student_ids, duration_seconds: duration})
+
+          {:reply, :ok, socket}
+
+        error ->
+          {:reply, {:error, %{reason: inspect(error)}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("start_turn", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      case SessionManager.start_current_turn(room_id, tenant_id) do
+        :ok ->
+          {:ok, turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+          broadcast!(socket, "turn_started", turn_info)
+          {:reply, :ok, socket}
+
+        error ->
+          {:reply, {:error, %{reason: inspect(error)}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("advance_turn", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      case SessionManager.advance_turn(room_id, tenant_id) do
+        :ok ->
+          {:ok, turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+          broadcast!(socket, "turn_advanced", turn_info)
+          {:reply, :ok, socket}
+
+        error ->
+          {:reply, {:error, %{reason: inspect(error)}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("request_turn", _payload, socket) do
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+    student_id = socket.assigns.student_id
+
+    case SessionManager.get_current_turn(room_id, tenant_id) do
+      {:ok, turn_info} ->
+        if turn_info.current_turn == student_id do
+          push(socket, "turn_granted", turn_info)
+          {:reply, :ok, socket}
+        else
+          {:reply, {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+        end
+
+      error ->
+        {:reply, {:error, %{reason: inspect(error)}}, socket}
+    end
+  end
+
   def handle_info({:beat, beat_number}, socket) do
     # Push beat to WebSocket client
     push(socket, "beat", %{beat: beat_number})

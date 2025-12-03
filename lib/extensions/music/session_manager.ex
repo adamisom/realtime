@@ -12,7 +12,7 @@ defmodule Realtime.Music.SessionManager do
 
   require Logger
 
-  alias Realtime.Music.Supervisor
+  alias Realtime.Music.{Supervisor, TurnManager, PatternMatcher}
 
   ## Client API
 
@@ -111,6 +111,69 @@ defmodule Realtime.Music.SessionManager do
   """
   def get_game_state(room_id, tenant_id) do
     GenServer.call(__MODULE__, {:get_game_state, room_id, tenant_id})
+  end
+
+  @doc """
+  Start turn rotation for a game.
+  """
+  def start_turn_rotation(room_id, tenant_id, student_ids, turn_duration_seconds \\ 30) do
+    GenServer.call(
+      __MODULE__,
+      {:start_turn_rotation, room_id, tenant_id, student_ids, turn_duration_seconds}
+    )
+  end
+
+  @doc """
+  Start the current turn (begin timing).
+  """
+  def start_current_turn(room_id, tenant_id) do
+    GenServer.call(__MODULE__, {:start_current_turn, room_id, tenant_id})
+  end
+
+  @doc """
+  Advance to the next turn.
+  """
+  def advance_turn(room_id, tenant_id) do
+    GenServer.call(__MODULE__, {:advance_turn, room_id, tenant_id})
+  end
+
+  @doc """
+  Get current turn information.
+  """
+  def get_current_turn(room_id, tenant_id) do
+    GenServer.call(__MODULE__, {:get_current_turn, room_id, tenant_id})
+  end
+
+  @doc """
+  Set call pattern for Call and Response game.
+  """
+  def set_call_pattern(room_id, tenant_id, pattern) when is_list(pattern) do
+    GenServer.call(__MODULE__, {:set_call_pattern, room_id, tenant_id, pattern})
+  end
+
+  @doc """
+  Record student response to call pattern.
+  """
+  def record_response(room_id, tenant_id, student_id, response_pattern)
+      when is_list(response_pattern) do
+    GenServer.call(
+      __MODULE__,
+      {:record_response, room_id, tenant_id, student_id, response_pattern}
+    )
+  end
+
+  @doc """
+  Validate student response against call pattern.
+  """
+  def validate_response(room_id, tenant_id, student_id, opts \\ []) do
+    GenServer.call(__MODULE__, {:validate_response, room_id, tenant_id, student_id, opts})
+  end
+
+  @doc """
+  Get all response validations for a room.
+  """
+  def get_response_validations(room_id, tenant_id) do
+    GenServer.call(__MODULE__, {:get_response_validations, room_id, tenant_id})
   end
 
   def start_link(_opts) do
@@ -323,6 +386,207 @@ defmodule Realtime.Music.SessionManager do
           game_type = Map.get(room, :game_type, nil)
           game_state = Map.get(room, :game_state, %{})
           {:reply, {:ok, %{game_type: game_type, game_state: game_state}}, state}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:start_turn_rotation, room_id, tenant_id, student_ids, turn_duration_seconds},
+        _from,
+        state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          turn_manager = TurnManager.start_turn_rotation(student_ids, turn_duration_seconds)
+
+          updated_game_state =
+            Map.put(room.game_state, :turn_manager, TurnManager.to_map(turn_manager))
+
+          updated_room = %{room | game_state: updated_game_state}
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:start_current_turn, room_id, tenant_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          turn_manager_map = Map.get(room.game_state, :turn_manager)
+
+          if turn_manager_map do
+            turn_manager = TurnManager.from_map(turn_manager_map)
+            updated_turn_manager = TurnManager.start_turn(turn_manager)
+
+            updated_game_state =
+              Map.put(room.game_state, :turn_manager, TurnManager.to_map(updated_turn_manager))
+
+            updated_room = %{room | game_state: updated_game_state}
+            {:reply, :ok, Map.put(state, room_id, updated_room)}
+          else
+            {:reply, {:error, :no_turn_rotation}, state}
+          end
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:advance_turn, room_id, tenant_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          turn_manager_map = Map.get(room.game_state, :turn_manager)
+
+          if turn_manager_map do
+            turn_manager = TurnManager.from_map(turn_manager_map)
+            updated_turn_manager = TurnManager.next_turn(turn_manager)
+
+            updated_game_state =
+              Map.put(room.game_state, :turn_manager, TurnManager.to_map(updated_turn_manager))
+
+            updated_room = %{room | game_state: updated_game_state}
+            {:reply, :ok, Map.put(state, room_id, updated_room)}
+          else
+            {:reply, {:error, :no_turn_rotation}, state}
+          end
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:get_current_turn, room_id, tenant_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          turn_manager_map = Map.get(room.game_state, :turn_manager)
+
+          if turn_manager_map do
+            turn_manager = TurnManager.from_map(turn_manager_map)
+            time_remaining = TurnManager.time_remaining(turn_manager)
+
+            {:reply,
+             {:ok,
+              %{
+                current_turn: turn_manager.current_turn,
+                turn_state: turn_manager.turn_state,
+                time_remaining: time_remaining,
+                queue: turn_manager.queue
+              }}, state}
+          else
+            {:reply, {:error, :no_turn_rotation}, state}
+          end
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:set_call_pattern, room_id, tenant_id, pattern}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          updated_game_state = Map.put(room.game_state, :call_pattern, pattern)
+          updated_game_state = Map.put(updated_game_state, :responses, %{})
+          updated_room = %{room | game_state: updated_game_state}
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:record_response, room_id, tenant_id, student_id, response_pattern}, _from,
+        state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          responses = Map.get(room.game_state, :responses, %{})
+          updated_responses = Map.put(responses, student_id, response_pattern)
+
+          updated_game_state = Map.put(room.game_state, :responses, updated_responses)
+          updated_room = %{room | game_state: updated_game_state}
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:validate_response, room_id, tenant_id, student_id, opts}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          call_pattern = Map.get(room.game_state, :call_pattern)
+          responses = Map.get(room.game_state, :responses, %{})
+          response_pattern = Map.get(responses, student_id)
+
+          cond do
+            is_nil(call_pattern) ->
+              {:reply, {:error, :no_call_pattern}, state}
+
+            is_nil(response_pattern) ->
+              {:reply, {:error, :no_response}, state}
+
+            true ->
+              feedback = PatternMatcher.feedback(call_pattern, response_pattern, opts)
+
+              # Store validation result
+              validations = Map.get(room.game_state, :validations, %{})
+              updated_validations = Map.put(validations, student_id, feedback)
+
+              updated_game_state = Map.put(room.game_state, :validations, updated_validations)
+              updated_room = %{room | game_state: updated_game_state}
+              {:reply, {:ok, feedback}, Map.put(state, room_id, updated_room)}
+          end
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:get_response_validations, room_id, tenant_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          validations = Map.get(room.game_state, :validations, %{})
+          {:reply, {:ok, validations}, state}
         else
           {:reply, {:error, :unauthorized}, state}
         end
