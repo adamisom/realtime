@@ -33,6 +33,13 @@ Successfully implemented a complete music extension for Supabase Realtime, enabl
 :ok = Realtime.Music.SessionManager.cleanup_expired_rooms(tenant_id, max_age_hours: 24)
 ```
 
+**Beat assignment (for structured rhythm exercises):**
+```elixir
+:ok = Realtime.Music.SessionManager.assign_beat(room_id, beat, student_id)
+{:ok, assignments} = Realtime.Music.SessionManager.get_beat_assignments(room_id)
+:ok = Realtime.Music.SessionManager.clear_beat_assignment(room_id, beat)
+```
+
 ### Tempo Server API
 
 **Start a tempo server:**
@@ -74,6 +81,8 @@ channel.join()
 ```javascript
 channel.push("play_note", {midi: 60})
 // Broadcasts to all students in room
+// Rate limited: 10 notes/sec for students, 50/sec for teachers
+// Returns error if rate limit exceeded: {reason: "rate_limit_exceeded"}
 ```
 
 **Teacher controls:**
@@ -84,8 +93,9 @@ channel.push("set_tempo", {bpm: 140})
 // Mute a student
 channel.push("mute_student", {student_id: "student-1"})
 
-// Assign beat to student
+// Assign beat to student (for rhythm exercises)
 channel.push("assign_beat", {student_id: "student-1", beat: 4})
+// Receives "beat_assignments" on join and "beat_assignment_updated" on changes
 ```
 
 **Receive events:**
@@ -139,6 +149,61 @@ Content-Type: application/json
 }
 ```
 
+**HTTP API for analytics:**
+```bash
+# Get room statistics
+GET /api/music/rooms/:room_id/analytics
+Authorization: Bearer <jwt_token>
+# Returns: {total_notes, notes_per_minute, tempo_changes, session_duration_minutes, unique_students}
+
+# Get participation breakdown per student
+GET /api/music/rooms/:room_id/participation
+Authorization: Bearer <jwt_token>
+# Returns: {"student-1": 15, "student-2": 8, ...}
+
+# Get activity over time
+GET /api/music/rooms/:room_id/activity?interval_minutes=1
+Authorization: Bearer <jwt_token>
+# Returns: [{interval_start, event_count, note_count}, ...]
+```
+
+### Rate Limiting API
+
+**Check rate limit:**
+```elixir
+case Realtime.Music.RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
+  {:ok, :allowed} -> # Proceed with note play
+  {:error, :rate_limit_exceeded} -> # Reject request
+end
+```
+
+**Record note play:**
+```elixir
+:ok = Realtime.Music.RateLimiter.record_note_play(room_id, tenant_id, student_id)
+```
+
+**Note:** Rate limiting is automatically enforced in the channel. Students are limited to 10 notes/second, teachers to 50 notes/second (configurable in `config/config.exs`).
+
+### Analytics API
+
+**Get room statistics:**
+```elixir
+stats = Realtime.Music.Analytics.get_room_statistics(room_id, tenant_id)
+# Returns: %{total_notes, notes_per_minute, tempo_changes, session_duration_minutes, unique_students}
+```
+
+**Get participation breakdown:**
+```elixir
+breakdown = Realtime.Music.Analytics.get_participation_breakdown(room_id, tenant_id)
+# Returns: %{"student-1" => 15, "student-2" => 8, ...}
+```
+
+**Get activity over time:**
+```elixir
+activity = Realtime.Music.Analytics.get_activity_over_time(room_id, tenant_id, interval_minutes: 1)
+# Returns: [%{interval_start, event_count, note_count}, ...]
+```
+
 ### Database Queries
 
 **Query participation events:**
@@ -162,8 +227,10 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 ## Key Features
 
 - **Multi-tenant Support:** All components properly isolate by `tenant_id`
-- **Real-time Collaboration:** Students can play notes simultaneously
+- **Real-time Collaboration:** Students can play notes simultaneously with rate limiting protection
 - **Tempo Synchronization:** Shared tempo clock with beat broadcasting
+- **Beat Assignment:** Teachers assign specific beats to students for structured rhythm exercises
+- **Room Analytics Dashboard:** Statistics, participation breakdown, and activity over time
 - **Teacher Controls:** Tempo adjustment, student muting, beat assignment
 - **Session Management:** Room creation, join codes, student tracking
 - **SEL Data Collection:** Participation tracking and student reflections
@@ -174,17 +241,21 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 - **PubSub Topics:** Uses `Tenants.tenant_topic/3` for proper multi-tenant isolation
 - **Beat Scheduling:** Recalculates schedule from current time to prevent drift
 - **Dynamic Supervision:** Tempo servers managed by `DynamicSupervisor` with auto-restart
+- **Rate Limiting:** Sliding window algorithm using ETS table for O(1) lookups, automatic cleanup (10/sec students, 50/sec teachers)
+- **Analytics:** Ecto queries with aggregations, time-based grouping for activity charts
 - **Database Schema:** Tables in `_realtime` schema with proper indexes
 
 ## Testing
 
-- **Total Tests:** 36 tests across all phases
+- **Total Tests:** 60+ tests across all phases and enhancements
 - **Status:** ✅ All passing
 - **Coverage:**
   - Registry and Supervisor tests
   - TempoServer functionality and beat broadcasting
-  - SessionManager room operations
-  - Channel join, note broadcasting, teacher controls
+  - SessionManager room operations and beat assignments
+  - Rate limiting (sliding window, per-student/room/tenant isolation, time window reset)
+  - Analytics (statistics, participation breakdown, activity over time)
+  - Channel join, note broadcasting, teacher controls, rate limit enforcement
   - SEL tracker logging and reflection API
 
 ## Files Created
@@ -195,12 +266,15 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 - `lib/extensions/music/tempo_server.ex`
 - `lib/extensions/music/session_manager.ex`
 - `lib/extensions/music/sel_tracker.ex`
+- `lib/extensions/music/rate_limiter.ex`
+- `lib/extensions/music/analytics.ex`
 - `lib/extensions/music/schemas/participation_event.ex`
 - `lib/extensions/music/schemas/student_reflection.ex`
 
 **Web Layer:**
 - `lib/realtime_web/channels/music_room_channel.ex`
 - `lib/realtime_web/controllers/music_reflection_controller.ex`
+- `lib/realtime_web/controllers/music_analytics_controller.ex`
 
 **Database:**
 - `priv/repo/migrations/20251202221724_create_music_sel_tables.exs`
@@ -212,6 +286,8 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 - `test/extensions/music/supervisor_tempo_test.exs`
 - `test/extensions/music/session_manager_test.exs`
 - `test/extensions/music/sel_tracker_test.exs`
+- `test/realtime/music/rate_limiter_test.exs`
+- `test/realtime/music/analytics_test.exs`
 - `test/realtime_web/channels/music_room_channel_test.exs`
 
 ## Implementation Phases
@@ -257,14 +333,28 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 - Integrated logging into channel (note plays, tempo changes)
 - HTTP API endpoint: `POST /api/music/reflections`
 
-## Next Steps (Optional)
+### Phase 7A: Rate Limiting
+- Created `Realtime.Music.RateLimiter` GenServer with sliding window algorithm
+- ETS table for fast O(1) lookups, automatic cleanup of old entries
+- Integrated into `MusicRoomChannel` to enforce limits on note plays
+- Configurable limits: 10 notes/sec for students, 50/sec for teachers
+- Per-student, per-room, per-tenant isolation
 
-For detailed implementation plans for the following enhancements, see `docs/MUSIC_EXTENSION_NEXT_STEPS.md`:
+### Phase 7B: Beat Assignment Visualization
+- Extended `SessionManager` with beat assignment storage (`beat_assignments` map)
+- Functions: `assign_beat/3`, `get_beat_assignments/1`, `clear_beat_assignment/2`, `clear_all_assignments/1`
+- `MusicRoomChannel` broadcasts assignments on join and updates
+- Channel events: `beat_assignments` (on join), `beat_assignment_updated` (on change)
 
-1. **Rate Limiting for Note Plays** - Prevent abuse and ensure fair participation (2-3 hours)
-2. **Beat Assignment Visualization** - Help teachers and students see beat assignments (3-4 hours)
-3. **Room Analytics Dashboard** - Provide insights into session participation and engagement (6-8 hours)
-4. **Expand SEL Data Collection** - Capture richer engagement and learning data (8-10 hours)
+### Phase 7C: Room Analytics Dashboard
+- Created `Realtime.Music.Analytics` module with Ecto query functions
+- Statistics: total notes, notes per minute, tempo changes, session duration, unique students
+- Participation breakdown: event counts per student
+- Activity over time: time-series data grouped by intervals for charting
+- HTTP endpoints: `/api/music/rooms/:room_id/analytics`, `/participation`, `/activity`
 
-**Priority Recommendation:** Start with Rate Limiting (security/performance), then Beat Assignment Visualization, then Room Analytics.
+## Possible Future Work
 
+For detailed implementation plans, see `docs/MUSIC_EXTENSION_NEXT_STEPS.md`:
+
+1. **Expand SEL Data Collection** - Capture richer engagement and learning data (8-10 hours)
