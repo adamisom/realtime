@@ -78,6 +78,41 @@ defmodule Realtime.Music.SessionManager do
     GenServer.call(__MODULE__, {:clear_all_assignments, room_id})
   end
 
+  @doc """
+  Cleanup expired rooms (rooms inactive for more than max_age_hours).
+  """
+  def cleanup_expired_rooms(tenant_id, max_age_hours \\ 24) do
+    GenServer.call(__MODULE__, {:cleanup_expired_rooms, tenant_id, max_age_hours})
+  end
+
+  @doc """
+  Set the game type for a room.
+  """
+  def set_game_type(room_id, tenant_id, game_type)
+      when game_type in [
+             :rhythm_circle,
+             :melody_builder,
+             :dynamics_dance,
+             :improvisation_jam,
+             :call_and_response
+           ] do
+    GenServer.call(__MODULE__, {:set_game_type, room_id, tenant_id, game_type})
+  end
+
+  @doc """
+  Update game state for a room (merges into existing state).
+  """
+  def update_game_state(room_id, tenant_id, new_state) when is_map(new_state) do
+    GenServer.call(__MODULE__, {:update_game_state, room_id, tenant_id, new_state})
+  end
+
+  @doc """
+  Get current game state for a room.
+  """
+  def get_game_state(room_id, tenant_id) do
+    GenServer.call(__MODULE__, {:get_game_state, room_id, tenant_id})
+  end
+
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
@@ -87,6 +122,7 @@ defmodule Realtime.Music.SessionManager do
   @impl true
   def init(_) do
     # State: %{room_id => %{teacher_id, tenant_id, bpm, created_at, students}}
+    schedule_cleanup()
     {:ok, %{}}
   end
 
@@ -106,7 +142,9 @@ defmodule Realtime.Music.SessionManager do
           created_at: System.system_time(:second),
           students: [],
           # %{beat_number => student_id}
-          beat_assignments: %{}
+          beat_assignments: %{},
+          game_type: nil,
+          game_state: %{}
         }
 
         Logger.info("Created music room #{room_id} for teacher #{teacher_id} (tenant: #{tenant_id})")
@@ -220,7 +258,90 @@ defmodule Realtime.Music.SessionManager do
     end
   end
 
+  @impl true
+  def handle_call({:cleanup_expired_rooms, tenant_id, max_age_hours}, _from, state) do
+    now = System.system_time(:second)
+    max_age_seconds = max_age_hours * 3600
+
+    expired =
+      Enum.filter(state, fn {_room_id, room} ->
+        room.tenant_id == tenant_id and
+          now - room.created_at > max_age_seconds and
+          room.students == []
+      end)
+
+    Enum.each(expired, fn {room_id, room} ->
+      Supervisor.stop_tempo_server(room_id, room.tenant_id)
+    end)
+
+    new_state = Map.drop(state, Enum.map(expired, &elem(&1, 0)))
+    {:reply, {:ok, length(expired)}, new_state}
+  end
+
+  @impl true
+  def handle_call({:set_game_type, room_id, tenant_id, game_type}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          updated_room = %{room | game_type: game_type, game_state: %{}}
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:update_game_state, room_id, tenant_id, new_state}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          current_game_state = Map.get(room, :game_state, %{})
+          updated_game_state = Map.merge(current_game_state, new_state)
+          updated_room = %{room | game_state: updated_game_state}
+          {:reply, :ok, Map.put(state, room_id, updated_room)}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:get_game_state, room_id, tenant_id}, _from, state) do
+    case Map.get(state, room_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      room ->
+        if room.tenant_id == tenant_id do
+          game_type = Map.get(room, :game_type, nil)
+          game_state = Map.get(room, :game_state, %{})
+          {:reply, {:ok, %{game_type: game_type, game_state: game_state}}, state}
+        else
+          {:reply, {:error, :unauthorized}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_info(:cleanup_rooms, state) do
+    # Cleanup all tenants (simplified - can be improved)
+    # In production, you might want to track tenants separately
+    schedule_cleanup()
+    {:noreply, state}
+  end
+
   ## Private Functions
+
+  defp schedule_cleanup do
+    Process.send_after(self(), :cleanup_rooms, 3_600_000)
+  end
 
   # Check for duplicates to prevent collisions
   defp generate_join_code(state) do

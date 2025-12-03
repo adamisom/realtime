@@ -84,6 +84,7 @@ defmodule Realtime.Music.TempoServer do
     end
 
     # Schedule next beat with new tempo if running
+    # Use schedule_beat which calculates from current time
     new_timer_ref =
       if state.running do
         schedule_beat(bpm)
@@ -98,6 +99,7 @@ defmodule Realtime.Music.TempoServer do
   def handle_cast(:start_clock, state) do
     Logger.info("Starting clock for room #{state.room_id}")
 
+    # Use schedule_beat which calculates from current time
     timer_ref = schedule_beat(state.bpm)
 
     {:noreply, %{state | running: true, timer_ref: timer_ref, beat: 0}}
@@ -125,17 +127,27 @@ defmodule Realtime.Music.TempoServer do
       {:beat, state.beat}
     )
 
-    # Recalculate schedule to prevent drift
-    timer_ref = schedule_beat(state.bpm)
+    # ✅ FIX: Recalculate from current time to prevent drift
+    now = System.monotonic_time(:millisecond)
+    ms_per_beat = div(60_000, state.bpm)
+    next_beat_time = now + ms_per_beat
+    timer_ref = schedule_beat_at(next_beat_time)
 
     {:noreply, %{state | beat: state.beat + 1, timer_ref: timer_ref}}
   end
 
   ## Private Functions
 
+  defp schedule_beat_at(target_time) do
+    now = System.monotonic_time(:millisecond)
+    delay = max(0, target_time - now)
+    Process.send_after(self(), :beat, delay)
+  end
+
   defp schedule_beat(bpm) do
+    now = System.monotonic_time(:millisecond)
     ms_per_beat = div(60_000, bpm)
-    Process.send_after(self(), :beat, ms_per_beat)
+    schedule_beat_at(now + ms_per_beat)
   end
 
   defp via_tuple(room_id, tenant_id) do

@@ -38,12 +38,16 @@ defmodule RealtimeWeb.MusicRoomChannel do
         # Join room (track student)
         case SessionManager.join_room(room_id, tenant_id, student_id) do
           :ok ->
+            # ✅ FIX: Extract role from JWT claims (secure) instead of params (insecure)
+            # Note: socket.assigns.claims is set in UserSocket.connect/3 via JWT verification
+            role = socket.assigns.claims["role"] || "student"
+
             socket =
               socket
               |> assign(:room_id, room_id)
               |> assign(:tenant_id, tenant_id)
               |> assign(:student_id, student_id)
-              |> assign(:role, params["role"] || "student")
+              |> assign(:role, role)
 
             # Start tempo server if not already running
             case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
@@ -80,10 +84,20 @@ defmodule RealtimeWeb.MusicRoomChannel do
     end
   end
 
-  def handle_in("play_note", %{"midi" => midi}, socket) do
+  def handle_in("play_note", %{"midi" => midi} = payload, socket) do
     room_id = socket.assigns.room_id
     tenant_id = socket.assigns.tenant_id
     student_id = socket.assigns.student_id
+
+    # Extract velocity (default to 64 for backward compatibility)
+    velocity = Map.get(payload, "velocity", 64)
+
+    velocity =
+      cond do
+        velocity < 0 -> 0
+        velocity > 127 -> 127
+        true -> velocity
+      end
 
     # Get rate limit based on role
     max_per_second =
@@ -99,23 +113,24 @@ defmodule RealtimeWeb.MusicRoomChannel do
         # Record note play
         RateLimiter.record_note_play(room_id, tenant_id, student_id)
 
-        # Log participation event
+        # Broadcast with velocity
+        broadcast!(socket, "student_note", %{
+          midi: midi,
+          velocity: velocity,
+          student_id: student_id,
+          timestamp: System.system_time(:millisecond)
+        })
+
+        # Log with velocity
         SelTracker.log_participation(
           room_id,
           tenant_id,
           student_id,
           "note_played",
-          %{midi: midi}
+          %{midi: midi, velocity: velocity}
         )
 
-        # Broadcast to all students in room
-        broadcast!(socket, "student_note", %{
-          midi: midi,
-          student_id: student_id,
-          timestamp: System.system_time(:millisecond)
-        })
-
-        {:noreply, socket}
+        {:reply, :ok, socket}
 
       {:error, :rate_limit_exceeded} ->
         {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
