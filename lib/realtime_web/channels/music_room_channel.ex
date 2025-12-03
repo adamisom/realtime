@@ -109,33 +109,78 @@ defmodule RealtimeWeb.MusicRoomChannel do
         Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
       end
 
-    # Check rate limit
-    case RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
-      {:ok, :allowed} ->
-        # Record note play
-        RateLimiter.record_note_play(room_id, tenant_id, student_id)
+    # Check if Improvisation Jam is active and enforce solo mode
+    solo_check =
+      case SessionManager.get_game_state(room_id, tenant_id) do
+        {:ok, %{game_type: :improvisation_jam, game_state: game_state}} ->
+          current_soloist = Map.get(game_state, :current_soloist)
+          improvisation_state = Map.get(game_state, :improvisation_state)
 
-        # Broadcast with velocity
-        broadcast!(socket, "student_note", %{
-          midi: midi,
-          velocity: velocity,
-          student_id: student_id,
-          timestamp: System.system_time(:millisecond)
-        })
+          if improvisation_state == :solo_active && current_soloist != student_id do
+            {:error, :not_soloist}
+          else
+            :ok
+          end
 
-        # Log with velocity
-        SelTracker.log_participation(
-          room_id,
-          tenant_id,
-          student_id,
-          "note_played",
-          %{midi: midi, velocity: velocity}
-        )
+        _ ->
+          :ok
+      end
 
-        {:reply, :ok, socket}
+    case solo_check do
+      {:error, :not_soloist} ->
+        {:reply, {:error, %{reason: "only_soloist_can_play"}}, socket}
 
-      {:error, :rate_limit_exceeded} ->
-        {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
+      :ok ->
+        # Check rate limit
+        case RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
+          {:ok, :allowed} ->
+            # Record note play
+            RateLimiter.record_note_play(room_id, tenant_id, student_id)
+
+            # Broadcast with velocity
+            broadcast!(socket, "student_note", %{
+              midi: midi,
+              velocity: velocity,
+              student_id: student_id,
+              timestamp: System.system_time(:millisecond)
+            })
+
+            # Log with velocity
+            SelTracker.log_participation(
+              room_id,
+              tenant_id,
+              student_id,
+              "note_played",
+              %{midi: midi, velocity: velocity}
+            )
+
+            # Check if Dynamics Dance is active and provide volume feedback
+            case SessionManager.get_game_state(room_id, tenant_id) do
+              {:ok, %{game_type: :dynamics_dance, game_state: game_state}} ->
+                dynamic_goal = Map.get(game_state, :dynamic_goal)
+                dynamic_velocity_range = Map.get(game_state, :dynamic_velocity_range)
+
+                if dynamic_goal && dynamic_velocity_range do
+                  {min_vel, max_vel} = dynamic_velocity_range
+                  in_range = velocity >= min_vel and velocity <= max_vel
+
+                  push(socket, "volume_feedback", %{
+                    velocity: velocity,
+                    goal: dynamic_goal,
+                    in_range: in_range,
+                    target_range: dynamic_velocity_range
+                  })
+                end
+
+              _ ->
+                :ok
+            end
+
+            {:reply, :ok, socket}
+
+          {:error, :rate_limit_exceeded} ->
+            {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
+        end
     end
   end
 
@@ -289,8 +334,346 @@ defmodule RealtimeWeb.MusicRoomChannel do
     end
   end
 
+  def handle_in("assign_pattern", %{"student_id" => student_id, "pattern" => pattern}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      {:ok, game_state} = SessionManager.get_game_state(room_id, tenant_id)
+      pattern_assignments = Map.get(game_state.game_state, :pattern_assignments, %{})
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          pattern_assignments: Map.put(pattern_assignments, student_id, pattern)
+        })
+
+      broadcast!(socket, "pattern_assigned", %{student_id: student_id, pattern: pattern})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("pattern_start", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          pattern_state: :active
+        })
+
+      broadcast!(socket, "pattern_started", %{})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("start_melody", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+      {:ok, room} = SessionManager.get_room(room_id)
+
+      :ok = SessionManager.start_turn_rotation(room_id, tenant_id, room.students, 60)
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          melody_sequence: [],
+          melody_state: :building
+        })
+
+      broadcast!(socket, "melody_started", %{})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("add_note", %{"midi" => midi, "velocity" => velocity}, socket) do
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+    student_id = socket.assigns.student_id
+
+    case SessionManager.get_current_turn(room_id, tenant_id) do
+      {:ok, turn_info} ->
+        if turn_info.current_turn == student_id do
+          {:ok, game_state} = SessionManager.get_game_state(room_id, tenant_id)
+          melody_sequence = Map.get(game_state.game_state, :melody_sequence, [])
+
+          new_note = %{
+            midi: midi,
+            velocity: velocity,
+            student_id: student_id,
+            timestamp: System.system_time(:millisecond),
+            position: length(melody_sequence)
+          }
+
+          updated_melody = melody_sequence ++ [new_note]
+
+          :ok =
+            SessionManager.update_game_state(room_id, tenant_id, %{
+              melody_sequence: updated_melody
+            })
+
+          broadcast!(socket, "note_added", %{
+            note: new_note,
+            melody_length: length(updated_melody)
+          })
+
+          :ok = SessionManager.advance_turn(room_id, tenant_id)
+          :ok = SessionManager.start_current_turn(room_id, tenant_id)
+
+          {:ok, next_turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+          broadcast!(socket, "turn_advanced", next_turn_info)
+
+          {:reply, :ok, socket}
+        else
+          {:reply,
+           {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+        end
+
+      error ->
+        {:reply, {:error, %{reason: inspect(error)}}, socket}
+    end
+  end
+
+  def handle_in("play_melody", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      {:ok, game_state} = SessionManager.get_game_state(room_id, tenant_id)
+      melody_sequence = Map.get(game_state.game_state, :melody_sequence, [])
+
+      if melody_sequence != [] do
+        # Broadcast melody sequence for client-side playback
+        # Note: For server-side playback, would need PatternPlayer GenServer
+        broadcast!(socket, "melody_playing", %{melody: melody_sequence})
+        {:reply, :ok, socket}
+      else
+        {:reply, {:error, %{reason: "melody_empty"}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("set_dynamic_pattern", %{"pattern" => pattern}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      valid_dynamics = ["p", "mp", "mf", "f", "pp", "ff"]
+
+      if Enum.all?(pattern, &(&1 in valid_dynamics)) do
+        :ok =
+          SessionManager.update_game_state(room_id, tenant_id, %{
+            dynamic_pattern: pattern,
+            dynamic_current_index: 0
+          })
+
+        broadcast!(socket, "dynamic_pattern_set", %{pattern: pattern})
+        {:reply, :ok, socket}
+      else
+        {:reply, {:error, %{reason: "invalid_dynamic_pattern"}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("set_dynamic_goal", %{"dynamic" => dynamic}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      velocity_range =
+        case dynamic do
+          "pp" -> {20, 30}
+          "p" -> {40, 50}
+          "mp" -> {60, 70}
+          "mf" -> {80, 90}
+          "f" -> {100, 110}
+          "ff" -> {120, 127}
+          _ -> {64, 64}
+        end
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          dynamic_goal: dynamic,
+          dynamic_velocity_range: velocity_range
+        })
+
+      broadcast!(socket, "dynamic_goal_set", %{
+        dynamic: dynamic,
+        velocity_range: velocity_range
+      })
+
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("start_improvisation", %{"solo_duration_seconds" => duration}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+      {:ok, room} = SessionManager.get_room(room_id)
+
+      :ok = SessionManager.start_turn_rotation(room_id, tenant_id, room.students, duration)
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          improvisation_state: :waiting,
+          current_soloist: nil,
+          solo_queue: room.students
+        })
+
+      broadcast!(socket, "improvisation_started", %{solo_duration: duration})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("request_solo", _payload, socket) do
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+    student_id = socket.assigns.student_id
+
+    {:ok, turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+
+    if turn_info.current_turn == student_id do
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          current_soloist: student_id,
+          improvisation_state: :solo_active
+        })
+
+      broadcast!(socket, "solo_granted", %{soloist: student_id})
+      {:reply, :ok, socket}
+    else
+      {:reply,
+       {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+    end
+  end
+
+  def handle_in("assign_solo", %{"student_id" => student_id}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          current_soloist: student_id,
+          improvisation_state: :solo_active
+        })
+
+      broadcast!(socket, "solo_assigned", %{soloist: student_id})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("end_solo", _payload, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          current_soloist: nil,
+          improvisation_state: :waiting
+        })
+
+      :ok = SessionManager.advance_turn(room_id, tenant_id)
+      :ok = SessionManager.start_current_turn(room_id, tenant_id)
+
+      {:ok, next_turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+      broadcast!(socket, "solo_ended", %{next_turn: next_turn_info})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("play_call", %{"pattern" => pattern}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      :ok = SessionManager.set_call_pattern(room_id, tenant_id, pattern)
+
+      # Note: For server-side playback, would need PatternPlayer GenServer
+      # For now, broadcast pattern for client-side playback
+      _pattern_obj = Realtime.Music.Pattern.create("Call", pattern)
+
+      :ok =
+        SessionManager.update_game_state(room_id, tenant_id, %{
+          response_state: :recording_responses
+        })
+
+      broadcast!(socket, "call_playing", %{pattern: pattern})
+      {:reply, :ok, socket}
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
+  def handle_in("record_response", %{"response" => response_pattern}, socket) do
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+    student_id = socket.assigns.student_id
+
+    :ok = SessionManager.record_response(room_id, tenant_id, student_id, response_pattern)
+    broadcast!(socket, "response_recorded", %{student_id: student_id})
+    {:reply, :ok, socket}
+  end
+
+  def handle_in("validate_response", %{"student_id" => student_id}, socket) do
+    if is_teacher?(socket) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+
+      case SessionManager.validate_response(room_id, tenant_id, student_id) do
+        {:ok, feedback} ->
+          broadcast!(socket, "response_feedback", %{student_id: student_id, feedback: feedback})
+          {:reply, {:ok, feedback}, socket}
+
+        error ->
+          {:reply, {:error, %{reason: inspect(error)}}, socket}
+      end
+    else
+      {:reply, {:error, %{reason: "unauthorized"}}, socket}
+    end
+  end
+
   def handle_info({:beat, beat_number}, socket) do
-    # Push beat to WebSocket client
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+
+    # Check if Rhythm Circle is active and pattern is playing
+    case SessionManager.get_game_state(room_id, tenant_id) do
+      {:ok, %{game_type: :rhythm_circle, game_state: game_state}} ->
+        if Map.get(game_state, :pattern_state) == :active do
+          :ok =
+            SessionManager.update_game_state(room_id, tenant_id, %{
+              pattern_current_beat: beat_number
+            })
+
+          push(socket, "pattern_beat", %{beat: beat_number})
+        end
+
+      _ ->
+        :ok
+    end
+
+    # Always push regular beat
     push(socket, "beat", %{beat: beat_number})
     {:noreply, socket}
   end
