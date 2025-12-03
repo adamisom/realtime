@@ -656,7 +656,27 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
       # Note: For server-side playback, would need PatternPlayer GenServer
       # For now, broadcast pattern for client-side playback
-      _pattern_obj = Realtime.Music.Pattern.create("Call", pattern)
+      # Convert string keys to atoms for Pattern.create if needed
+      pattern_with_atoms =
+        Enum.map(pattern, fn note ->
+          case note do
+            %{__struct__: _} -> note
+            map when is_map(map) ->
+              map
+              |> Enum.map(fn
+                {"midi", v} -> {:midi, v}
+                {"duration", v} -> {:duration, v}
+                {"timestamp", v} -> {:timestamp, v}
+                {"velocity", v} -> {:velocity, v}
+                {k, v} when is_atom(k) -> {k, v}
+                {k, v} -> {String.to_existing_atom(k), v}
+              end)
+              |> Map.new()
+            _ -> note
+          end
+        end)
+
+      _pattern_obj = Realtime.Music.Pattern.create("Call", pattern_with_atoms)
 
       :ok =
         SessionManager.update_game_state(room_id, tenant_id, %{

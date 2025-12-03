@@ -10,7 +10,12 @@ defmodule RealtimeWeb.MusicRoomChannelRhythmTest do
     {:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", tenant.external_id, bpm: 120)
     :ok = Realtime.Music.SessionManager.set_game_type(room_id, tenant.external_id, :rhythm_circle)
 
-    teacher_jwt = Generators.generate_jwt_token(tenant, %{"role" => "teacher"})
+    teacher_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "teacher",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, teacher_socket} = connect(UserSocket, %{}, conn_opts(tenant, teacher_jwt))
 
     {:ok, _, teacher_socket} =
@@ -36,11 +41,21 @@ defmodule RealtimeWeb.MusicRoomChannelRhythmTest do
     teacher_socket = push(teacher_socket, "assign_pattern", %{"student_id" => "student-1", "pattern" => pattern})
 
     assert_reply teacher_socket, :ok
-    assert_broadcast "pattern_assigned", %{student_id: "student-1", pattern: ^pattern}
+    # Pattern will be serialized with string keys in broadcast
+    assert_broadcast "pattern_assigned", %{student_id: "student-1", pattern: broadcast_pattern}
+    assert length(broadcast_pattern) == 2
+    assert Enum.all?(broadcast_pattern, fn note ->
+      Map.get(note, "midi") == 60 and Map.get(note, "duration") == 500
+    end)
   end
 
   test "student cannot assign pattern", %{tenant: tenant, room_id: room_id} do
-    student_jwt = Generators.generate_jwt_token(tenant, %{"role" => "student"})
+    student_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "student",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, student_socket} = connect(UserSocket, %{}, conn_opts(tenant, student_jwt))
 
     {:ok, _, student_socket} =
@@ -63,7 +78,12 @@ defmodule RealtimeWeb.MusicRoomChannelRhythmTest do
     # Set pattern state to active
     :ok = Realtime.Music.SessionManager.update_game_state(room_id, tenant.external_id, %{pattern_state: :active})
 
-    student_jwt = Generators.generate_jwt_token(tenant, %{"role" => "student"})
+    student_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "student",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, student_socket} = connect(UserSocket, %{}, conn_opts(tenant, student_jwt))
 
     {:ok, _, _student_socket} =

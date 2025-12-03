@@ -12,7 +12,12 @@ defmodule RealtimeWeb.MusicRoomChannelMelodyTest do
     :ok = Realtime.Music.SessionManager.join_room(room_id, tenant.external_id, "student-1")
     :ok = Realtime.Music.SessionManager.join_room(room_id, tenant.external_id, "student-2")
 
-    teacher_jwt = Generators.generate_jwt_token(tenant, %{"role" => "teacher"})
+    teacher_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "teacher",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, teacher_socket} = connect(UserSocket, %{}, conn_opts(tenant, teacher_jwt))
 
     {:ok, _, teacher_socket} =
@@ -21,7 +26,12 @@ defmodule RealtimeWeb.MusicRoomChannelMelodyTest do
     # Wait for beat_assignments
     assert_receive %Phoenix.Socket.Message{event: "beat_assignments"}, 1000
 
-    student1_jwt = Generators.generate_jwt_token(tenant, %{"role" => "student"})
+    student1_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "student",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, student1_socket} = connect(UserSocket, %{}, conn_opts(tenant, student1_jwt))
 
     {:ok, _, student1_socket} =
@@ -83,7 +93,12 @@ defmodule RealtimeWeb.MusicRoomChannelMelodyTest do
 
     :ok = Realtime.Music.SessionManager.start_current_turn(room_id, tenant.external_id)
 
-    student2_jwt = Generators.generate_jwt_token(tenant, %{"role" => "student"})
+    student2_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "student",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, student2_socket} = connect(UserSocket, %{}, conn_opts(tenant, student2_jwt))
 
     {:ok, _, student2_socket} =

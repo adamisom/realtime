@@ -10,7 +10,12 @@ defmodule RealtimeWeb.MusicRoomChannelCallResponseTest do
     {:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", tenant.external_id, bpm: 120)
     :ok = Realtime.Music.SessionManager.set_game_type(room_id, tenant.external_id, :call_and_response)
 
-    teacher_jwt = Generators.generate_jwt_token(tenant, %{"role" => "teacher"})
+    teacher_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "teacher",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, teacher_socket} = connect(UserSocket, %{}, conn_opts(tenant, teacher_jwt))
 
     {:ok, _, teacher_socket} =
@@ -19,7 +24,12 @@ defmodule RealtimeWeb.MusicRoomChannelCallResponseTest do
     # Wait for beat_assignments
     assert_receive %Phoenix.Socket.Message{event: "beat_assignments"}, 1000
 
-    student_jwt = Generators.generate_jwt_token(tenant, %{"role" => "student"})
+    student_jwt =
+      Generators.generate_jwt_token(tenant, %{
+        "role" => "student",
+        "exp" => System.system_time(:second) + 100_000
+      })
+
     {:ok, student_socket} = connect(UserSocket, %{}, conn_opts(tenant, student_jwt))
 
     {:ok, _, student_socket} =
@@ -41,7 +51,7 @@ defmodule RealtimeWeb.MusicRoomChannelCallResponseTest do
   end
 
   test "teacher can play call pattern", %{teacher_socket: teacher_socket} do
-    pattern = [%{midi: 60, timestamp: 0, duration: 500}, %{midi: 64, timestamp: 500, duration: 500}]
+    pattern = [%{"midi" => 60, "timestamp" => 0, "duration" => 500}, %{"midi" => 64, "timestamp" => 500, "duration" => 500}]
     teacher_socket = push(teacher_socket, "play_call", %{"pattern" => pattern})
 
     assert_reply teacher_socket, :ok
