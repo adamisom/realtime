@@ -69,9 +69,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
             # Start tempo clock
             TempoServer.start_clock(room_id, tenant_id)
 
-            # Get current beat assignments and send to joining client
+            # Get current beat assignments
             {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
-            socket = push(socket, "beat_assignments", %{assignments: assignments})
+
+            # Send beat assignments after join completes
+            send(self(), {:send_beat_assignments, assignments})
 
             {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments}, socket}
 
@@ -290,6 +292,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
   def handle_info({:beat, beat_number}, socket) do
     # Push beat to WebSocket client
     push(socket, "beat", %{beat: beat_number})
+    {:noreply, socket}
+  end
+
+  def handle_info({:send_beat_assignments, assignments}, socket) do
+    push(socket, "beat_assignments", %{assignments: assignments})
     {:noreply, socket}
   end
 
