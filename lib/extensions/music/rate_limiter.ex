@@ -92,7 +92,7 @@ defmodule Realtime.Music.RateLimiter do
         # Filter out old timestamps
         recent_timestamps = Enum.filter(timestamps, fn ts -> ts >= cutoff end)
 
-        if length(recent_timestamps) == 0 do
+        if Enum.empty?(recent_timestamps) do
           # Remove entry if no recent timestamps
           :ets.delete(__MODULE__, key)
         else

@@ -10,14 +10,14 @@ defmodule RealtimeWeb.MusicRoomChannel do
   """
   use RealtimeWeb, :channel
 
-  alias Realtime.Music.{TempoServer, SessionManager, SelTracker, RateLimiter}
+  alias Realtime.Music.{TempoServer, SessionManager, SelTracker, RateLimiter, Pattern}
   alias Realtime.Tenants
 
   require Logger
 
   ## Private Helpers
 
-  defp is_teacher?(socket) do
+  defp teacher?(socket) do
     socket.assigns.role == "teacher"
   end
 
@@ -122,7 +122,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
     # Get rate limit based on role
     max_per_second =
-      if is_teacher?(socket) do
+      if teacher?(socket) do
         Application.get_env(:realtime, :extensions)[:music][:rate_limit][:teacher_notes_per_second]
       else
         Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
@@ -209,7 +209,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("set_tempo", %{"bpm" => bpm}, socket) when is_integer(bpm) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -242,7 +242,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("mute_student", %{"student_id" => student_id}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       broadcast!(socket, "student_muted", %{student_id: student_id})
       {:reply, :ok, socket}
     else
@@ -251,7 +251,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("assign_beat", %{"student_id" => student_id, "beat" => beat}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
 
       # Store assignment in SessionManager
@@ -278,7 +278,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("start_turn_rotation", %{"student_ids" => student_ids, "duration_seconds" => duration}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -297,7 +297,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("start_turn", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -316,7 +316,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("advance_turn", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -354,7 +354,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("assign_pattern", %{"student_id" => student_id, "pattern" => pattern}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -374,7 +374,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("pattern_start", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -391,7 +391,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("start_melody", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
       {:ok, room} = SessionManager.get_room(room_id)
@@ -471,7 +471,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("play_melody", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -492,7 +492,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("set_dynamic_pattern", %{"pattern" => pattern}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -516,7 +516,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("set_dynamic_goal", %{"dynamic" => dynamic}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -549,7 +549,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("start_improvisation", %{"solo_duration_seconds" => duration}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
       {:ok, room} = SessionManager.get_room(room_id)
@@ -608,7 +608,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("assign_solo", %{"student_id" => student_id}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -626,7 +626,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("end_solo", _payload, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -648,7 +648,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("play_call", %{"pattern" => pattern}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 
@@ -660,7 +660,9 @@ defmodule RealtimeWeb.MusicRoomChannel do
       pattern_with_atoms =
         Enum.map(pattern, fn note ->
           case note do
-            %{__struct__: _} -> note
+            %{__struct__: _} ->
+              note
+
             map when is_map(map) ->
               map
               |> Enum.map(fn
@@ -672,11 +674,13 @@ defmodule RealtimeWeb.MusicRoomChannel do
                 {k, v} -> {String.to_existing_atom(k), v}
               end)
               |> Map.new()
-            _ -> note
+
+            _ ->
+              note
           end
         end)
 
-      _pattern_obj = Realtime.Music.Pattern.create("Call", pattern_with_atoms)
+      _pattern_obj = Pattern.create("Call", pattern_with_atoms)
 
       :ok =
         SessionManager.update_game_state(room_id, tenant_id, %{
@@ -718,7 +722,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("validate_response", %{"student_id" => student_id}, socket) do
-    if is_teacher?(socket) do
+    if teacher?(socket) do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
 

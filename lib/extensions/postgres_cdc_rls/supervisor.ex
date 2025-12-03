@@ -5,6 +5,7 @@ defmodule Extensions.PostgresCdcRls.Supervisor do
   use Supervisor
 
   alias Extensions.PostgresCdcRls
+  alias Realtime.Syn.PostgresCdc
 
   @spec start_link :: :ignore | {:error, any} | {:ok, pid}
   def start_link do
@@ -15,7 +16,7 @@ defmodule Extensions.PostgresCdcRls.Supervisor do
   def init(_args) do
     load_migrations_modules()
 
-    :syn.add_node_to_scopes(Realtime.Syn.PostgresCdc.scopes())
+    :syn.add_node_to_scopes(PostgresCdc.scopes())
 
     children = [
       {

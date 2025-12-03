@@ -822,5 +822,5 @@ defmodule RealtimeWeb.RealtimeChannel do
 
   defp maybe_replay_messages(_, _, _, _, _), do: {:ok, MapSet.new()}
 
-  defp max_heap_size(), do: Application.fetch_env!(:realtime, :websocket_max_heap_size)
+  defp max_heap_size, do: Application.fetch_env!(:realtime, :websocket_max_heap_size)
 end

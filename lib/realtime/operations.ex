@@ -3,13 +3,14 @@ defmodule Realtime.Operations do
   Support operations for Realtime.
   """
   alias Realtime.Rpc
+  alias Realtime.Syn.PostgresCdc
 
   @doc """
   Ensures connected users are connected to the closest region by killing and restart the connection process.
   """
   def rebalance do
     Enum.reduce(:syn.group_names(:users), 0, fn tenant, acc ->
-      scope = Realtime.Syn.PostgresCdc.scope(tenant)
+      scope = PostgresCdc.scope(tenant)
 
       case :syn.lookup(scope, tenant) do
         {pid, %{region: region}} ->

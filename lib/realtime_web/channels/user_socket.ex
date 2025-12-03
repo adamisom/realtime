@@ -144,5 +144,5 @@ defmodule RealtimeWeb.UserSocket do
     end
   end
 
-  defp max_heap_size(), do: Application.fetch_env!(:realtime, :websocket_max_heap_size)
+  defp max_heap_size, do: Application.fetch_env!(:realtime, :websocket_max_heap_size)
 end

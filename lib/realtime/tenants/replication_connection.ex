@@ -69,13 +69,15 @@ defmodule Realtime.Tenants.ReplicationConnection do
     """
     use GenServer
 
+    alias Realtime.Tenants.ReplicationConnection
+
     def start_link(args, init_timeout) do
       GenServer.start_link(__MODULE__, args, timeout: init_timeout)
     end
 
     @impl true
     def init(args) do
-      case Realtime.Tenants.ReplicationConnection.start_link(args) do
+      case ReplicationConnection.start_link(args) do
         {:ok, pid} -> {:ok, pid}
         {:error, reason} -> {:stop, reason}
       end
@@ -242,7 +244,22 @@ defmodule Realtime.Tenants.ReplicationConnection do
     {:stream, query, [], %{state | step: :streaming}}
   end
 
-  # %Postgrex.Error{message: nil, postgres: %{code: :configuration_limit_exceeded, line: "291", message: "all replication slots are in use", file: "slot.c", unknown: "ERROR", severity: "ERROR", hint: "Free one or increase max_replication_slots.", routine: "ReplicationSlotCreate", pg_code: "53400"}, connection_id: 217538, query: nil}
+  # %Postgrex.Error{
+  #   message: nil,
+  #   postgres: %{
+  #     code: :configuration_limit_exceeded,
+  #     line: "291",
+  #     message: "all replication slots are in use",
+  #     file: "slot.c",
+  #     unknown: "ERROR",
+  #     severity: "ERROR",
+  #     hint: "Free one or increase max_replication_slots.",
+  #     routine: "ReplicationSlotCreate",
+  #     pg_code: "53400"
+  #   },
+  #   connection_id: 217538,
+  #   query: nil
+  # }
   def handle_result(%Postgrex.Error{postgres: %{pg_code: pg_code}}, _state) when pg_code in ~w(53300 53400) do
     {:disconnect, :max_wal_senders_reached}
   end

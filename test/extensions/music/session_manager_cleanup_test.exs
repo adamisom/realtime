@@ -47,4 +47,3 @@ defmodule Realtime.Music.SessionManagerCleanupTest do
     assert count >= 0
   end
 end
-

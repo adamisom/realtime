@@ -20,4 +20,3 @@ defmodule Realtime.Repo.Migrations.CreateGameSessionsTable do
     create index(:game_sessions, [:started_at], prefix: "_realtime")
   end
 end
-

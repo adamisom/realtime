@@ -128,4 +128,3 @@ defmodule Realtime.Music.PatternTest do
     end
   end
 end
-

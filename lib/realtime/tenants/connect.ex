@@ -424,7 +424,7 @@ defmodule Realtime.Tenants.Connect do
   defp tenant_suspended?(%Tenant{suspend: true}), do: {:error, :tenant_suspended}
   defp tenant_suspended?(_), do: :ok
 
-  defp rebalance_check_interval_in_ms(), do: Application.fetch_env!(:realtime, :rebalance_check_interval_in_ms)
+  defp rebalance_check_interval_in_ms, do: Application.fetch_env!(:realtime, :rebalance_check_interval_in_ms)
 
   defp start_replication_connection(state) do
     %{tenant: tenant} = state

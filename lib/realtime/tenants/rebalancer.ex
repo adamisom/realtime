@@ -4,6 +4,8 @@ defmodule Realtime.Tenants.Rebalancer do
   """
 
   alias Realtime.Api.Tenant
+  alias Realtime.Nodes
+  alias Realtime.Tenants.Cache
 
   @spec check(MapSet.t(node), MapSet.t(node), binary) :: :ok | {:error, :wrong_region}
   def check(previous_nodes_set, current_nodes_set, tenant_id)
@@ -12,8 +14,8 @@ defmodule Realtime.Tenants.Rebalancer do
     # If they are equal it means that the cluster is relatively stable
     # We can check now if this Connect process is in the correct region
     if MapSet.equal?(current_nodes_set, previous_nodes_set) do
-      with %Tenant{} = tenant <- Realtime.Tenants.Cache.get_tenant_by_external_id(tenant_id),
-           {:ok, _node, expected_region} <- Realtime.Nodes.get_node_for_tenant(tenant),
+      with %Tenant{} = tenant <- Cache.get_tenant_by_external_id(tenant_id),
+           {:ok, _node, expected_region} <- Nodes.get_node_for_tenant(tenant),
            region when is_binary(region) <- Application.get_env(:realtime, :region) do
         if region == expected_region do
           :ok

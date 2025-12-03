@@ -39,4 +39,3 @@ defmodule Realtime.Music.Schemas.GameSession do
     ])
   end
 end
-

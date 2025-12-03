@@ -214,7 +214,7 @@ defmodule Realtime.GenRpc do
   end
 
   # Max amount of clients (TCP connections) used by gen_rpc
-  defp max_clients(), do: Application.fetch_env!(:realtime, :max_gen_rpc_clients)
+  defp max_clients, do: Application.fetch_env!(:realtime, :max_gen_rpc_clients)
 
   defp rpc_nodes(nodes, key), do: Enum.map(nodes, &rpc_node(&1, key))
 

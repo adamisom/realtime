@@ -22,4 +22,3 @@ defmodule Realtime.Repo.Migrations.CreateMusicPatternsTable do
     create index(:music_patterns, [:tenant_id, :pattern_type], prefix: "_realtime")
   end
 end
-

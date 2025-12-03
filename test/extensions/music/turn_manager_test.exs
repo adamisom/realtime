@@ -111,4 +111,3 @@ defmodule Realtime.Music.TurnManagerTest do
     end
   end
 end
-

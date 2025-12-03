@@ -232,3 +232,4 @@ If time is limited, focus on these in order:
 
 **Remember:** Quality is not about perfection, but about ensuring the system is secure, reliable, and maintainable. Use this checklist as a guide, not a rigid requirement.
 
+

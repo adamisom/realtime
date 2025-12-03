@@ -36,6 +36,7 @@ defmodule Realtime.Music.PatternMatcherTest do
         %{midi: 60, timestamp: 0, duration: 500, velocity: 80},
         %{midi: 62, timestamp: 500, duration: 500, velocity: 80}
       ]
+
       response = [%{midi: 60, timestamp: 0, duration: 500, velocity: 80}]
 
       accuracy = PatternMatcher.accuracy(call, response)
@@ -91,6 +92,7 @@ defmodule Realtime.Music.PatternMatcherTest do
         %{midi: 60, timestamp: 0, duration: 500, velocity: 80},
         %{midi: 62, timestamp: 500, duration: 500, velocity: 80}
       ]
+
       response = [
         %{midi: 60, timestamp: 0, duration: 500, velocity: 80},
         %{midi: 62, timestamp: 500, duration: 500, velocity: 80}
@@ -107,4 +109,3 @@ defmodule Realtime.Music.PatternMatcherTest do
     end
   end
 end
-

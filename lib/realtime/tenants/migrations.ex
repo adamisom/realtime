@@ -266,5 +266,5 @@ defmodule Realtime.Tenants.Migrations do
     :ok
   end
 
-  def migrations(), do: @migrations
+  def migrations, do: @migrations
 end

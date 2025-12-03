@@ -65,4 +65,3 @@ defmodule Realtime.Music.TempoServerTimingTest do
     assert avg_interval >= 450 and avg_interval <= 550
   end
 end
-

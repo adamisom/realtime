@@ -32,7 +32,7 @@ defmodule Realtime.UsersCounter do
     :"users_#{shard}"
   end
 
-  def scopes() do
+  def scopes do
     shards = Application.get_env(:realtime, :users_scope_shards)
     Enum.map(0..(shards - 1), fn shard -> :"users_#{shard}" end)
   end

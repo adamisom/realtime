@@ -26,7 +26,7 @@ defmodule Realtime.Music.Analytics do
 
     events = Repo.all(events_query)
 
-    if length(events) == 0 do
+    if Enum.empty?(events) do
       %{
         total_notes: 0,
         notes_per_minute: 0,
@@ -101,7 +101,7 @@ defmodule Realtime.Music.Analytics do
 
     events = Repo.all(query)
 
-    if length(events) == 0 do
+    if Enum.empty?(events) do
       []
     else
       # Group events by time intervals

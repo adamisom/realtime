@@ -13,11 +13,11 @@ defmodule Realtime.Syn.PostgresCdc do
     :"realtime_postgres_cdc_#{shard}"
   end
 
-  def scopes() do
+  def scopes do
     shards = Application.fetch_env!(:realtime, :postgres_cdc_scope_shards)
     Enum.map(0..(shards - 1), fn shard -> :"realtime_postgres_cdc_#{shard}" end)
   end
 
-  def syn_topic_prefix(), do: "realtime_postgres_cdc_"
+  def syn_topic_prefix, do: "realtime_postgres_cdc_"
   def syn_topic(tenant_id), do: "#{syn_topic_prefix()}#{tenant_id}"
 end

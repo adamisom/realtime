@@ -9,6 +9,7 @@ defmodule Realtime.Music.SelTracker do
   require Logger
 
   alias Realtime.Repo
+  alias Realtime.Music.Schemas.{ParticipationEvent, StudentReflection}
 
   @doc """
   Log a participation event.
@@ -28,8 +29,8 @@ defmodule Realtime.Music.SelTracker do
       timestamp: DateTime.utc_now()
     }
 
-    %Realtime.Music.Schemas.ParticipationEvent{}
-    |> Realtime.Music.Schemas.ParticipationEvent.changeset(attrs)
+    %ParticipationEvent{}
+    |> ParticipationEvent.changeset(attrs)
     |> Repo.insert()
     |> case do
       {:ok, _event} ->
@@ -66,8 +67,8 @@ defmodule Realtime.Music.SelTracker do
       metadata: metadata
     }
 
-    %Realtime.Music.Schemas.StudentReflection{}
-    |> Realtime.Music.Schemas.StudentReflection.changeset(attrs)
+    %StudentReflection{}
+    |> StudentReflection.changeset(attrs)
     |> Repo.insert()
     |> case do
       {:ok, _reflection} ->

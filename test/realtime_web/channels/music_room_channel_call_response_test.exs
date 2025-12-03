@@ -51,7 +51,11 @@ defmodule RealtimeWeb.MusicRoomChannelCallResponseTest do
   end
 
   test "teacher can play call pattern", %{teacher_socket: teacher_socket} do
-    pattern = [%{"midi" => 60, "timestamp" => 0, "duration" => 500}, %{"midi" => 64, "timestamp" => 500, "duration" => 500}]
+    pattern = [
+      %{"midi" => 60, "timestamp" => 0, "duration" => 500},
+      %{"midi" => 64, "timestamp" => 500, "duration" => 500}
+    ]
+
     teacher_socket = push(teacher_socket, "play_call", %{"pattern" => pattern})
 
     assert_reply teacher_socket, :ok

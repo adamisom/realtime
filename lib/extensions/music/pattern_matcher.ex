@@ -53,7 +53,7 @@ defmodule Realtime.Music.PatternMatcher do
         end
 
       # Convert to percentage (0-100)
-      (avg_score * length_ratio) * 100.0
+      avg_score * length_ratio * 100.0
     end
   end
 

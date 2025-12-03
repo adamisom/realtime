@@ -40,4 +40,3 @@ defmodule Realtime.Music.SessionManagerGameStateTest do
     assert state.game_state.melody_state == :building
   end
 end
-

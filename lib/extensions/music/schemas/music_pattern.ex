@@ -37,4 +37,3 @@ defmodule Realtime.Music.Schemas.MusicPattern do
     |> validate_inclusion(:pattern_type, ["rhythm", "melody", "call"])
   end
 end
-

@@ -155,5 +155,5 @@ defmodule Realtime.Nodes do
 
   @spec all_node_regions() :: [String.t()]
   @doc "List all the regions where nodes can be launched"
-  def all_node_regions(), do: :syn.group_names(RegionNodes)
+  def all_node_regions, do: :syn.group_names(RegionNodes)
 end

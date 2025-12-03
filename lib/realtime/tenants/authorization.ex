@@ -17,6 +17,8 @@ defmodule Realtime.Tenants.Authorization do
   alias Realtime.Database
   alias Realtime.GenCounter
   alias Realtime.GenRpc
+  alias Realtime.RateCounter
+  alias Realtime.Tenants.Cache
   alias Realtime.Tenants.Repo
   alias Realtime.Tenants.Authorization.Policies
 
@@ -339,9 +341,9 @@ defmodule Realtime.Tenants.Authorization do
   end
 
   defp rate_counter(tenant_id) do
-    %Tenant{} = tenant = Realtime.Tenants.Cache.get_tenant_by_external_id(tenant_id)
+    %Tenant{} = tenant = Cache.get_tenant_by_external_id(tenant_id)
     rate_counter = Realtime.Tenants.authorization_errors_per_second_rate(tenant)
-    {:ok, rate_counter} = Realtime.RateCounter.get(rate_counter)
+    {:ok, rate_counter} = RateCounter.get(rate_counter)
     rate_counter
   end
 end

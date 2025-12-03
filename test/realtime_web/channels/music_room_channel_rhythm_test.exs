@@ -44,9 +44,10 @@ defmodule RealtimeWeb.MusicRoomChannelRhythmTest do
     # Pattern will be serialized with string keys in broadcast
     assert_broadcast "pattern_assigned", %{student_id: "student-1", pattern: broadcast_pattern}
     assert length(broadcast_pattern) == 2
+
     assert Enum.all?(broadcast_pattern, fn note ->
-      Map.get(note, "midi") == 60 and Map.get(note, "duration") == 500
-    end)
+             Map.get(note, "midi") == 60 and Map.get(note, "duration") == 500
+           end)
   end
 
   test "student cannot assign pattern", %{tenant: tenant, room_id: room_id} do

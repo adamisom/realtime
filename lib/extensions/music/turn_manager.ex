@@ -40,11 +40,8 @@ defmodule Realtime.Music.TurnManager do
   def next_turn(turn_manager) do
     new_queue = turn_manager.queue ++ [turn_manager.current_turn]
 
-    {new_current, remaining_queue} =
-      case new_queue do
-        [next | rest] -> {next, rest}
-        [] -> {nil, []}
-      end
+    # new_queue is always non-empty since we append at least one element
+    [new_current | remaining_queue] = new_queue
 
     %{
       turn_manager
