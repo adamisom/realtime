@@ -21,6 +21,25 @@ defmodule RealtimeWeb.MusicRoomChannel do
     socket.assigns.role == "teacher"
   end
 
+  defp validate_game_active(socket, required_game_type) do
+    room_id = socket.assigns.room_id
+    tenant_id = socket.assigns.tenant_id
+
+    case SessionManager.get_game_state(room_id, tenant_id) do
+      {:ok, %{game_type: game_type}} when game_type == required_game_type ->
+        :ok
+
+      {:ok, %{game_type: nil}} ->
+        {:error, :no_game_active}
+
+      {:ok, %{game_type: other}} ->
+        {:error, {:wrong_game_type, other}}
+
+      error ->
+        error
+    end
+  end
+
   @doc """
   Join a music room.
 
@@ -393,47 +412,58 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("add_note", %{"midi" => midi, "velocity" => velocity}, socket) do
-    room_id = socket.assigns.room_id
-    tenant_id = socket.assigns.tenant_id
-    student_id = socket.assigns.student_id
+    case validate_game_active(socket, :melody_builder) do
+      :ok ->
+        room_id = socket.assigns.room_id
+        tenant_id = socket.assigns.tenant_id
+        student_id = socket.assigns.student_id
 
-    case SessionManager.get_current_turn(room_id, tenant_id) do
-      {:ok, turn_info} ->
-        if turn_info.current_turn == student_id do
-          {:ok, game_state} = SessionManager.get_game_state(room_id, tenant_id)
-          melody_sequence = Map.get(game_state.game_state, :melody_sequence, [])
+        case SessionManager.get_current_turn(room_id, tenant_id) do
+          {:ok, turn_info} ->
+            if turn_info.current_turn == student_id do
+              {:ok, game_state} = SessionManager.get_game_state(room_id, tenant_id)
+              melody_sequence = Map.get(game_state.game_state, :melody_sequence, [])
 
-          new_note = %{
-            midi: midi,
-            velocity: velocity,
-            student_id: student_id,
-            timestamp: System.system_time(:millisecond),
-            position: length(melody_sequence)
-          }
+              new_note = %{
+                midi: midi,
+                velocity: velocity,
+                student_id: student_id,
+                timestamp: System.system_time(:millisecond),
+                position: length(melody_sequence)
+              }
 
-          updated_melody = melody_sequence ++ [new_note]
+              updated_melody = melody_sequence ++ [new_note]
 
-          :ok =
-            SessionManager.update_game_state(room_id, tenant_id, %{
-              melody_sequence: updated_melody
-            })
+              :ok =
+                SessionManager.update_game_state(room_id, tenant_id, %{
+                  melody_sequence: updated_melody
+                })
 
-          broadcast!(socket, "note_added", %{
-            note: new_note,
-            melody_length: length(updated_melody)
-          })
+              broadcast!(socket, "note_added", %{
+                note: new_note,
+                melody_length: length(updated_melody)
+              })
 
-          :ok = SessionManager.advance_turn(room_id, tenant_id)
-          :ok = SessionManager.start_current_turn(room_id, tenant_id)
+              :ok = SessionManager.advance_turn(room_id, tenant_id)
+              :ok = SessionManager.start_current_turn(room_id, tenant_id)
 
-          {:ok, next_turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
-          broadcast!(socket, "turn_advanced", next_turn_info)
+              {:ok, next_turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+              broadcast!(socket, "turn_advanced", next_turn_info)
 
-          {:reply, :ok, socket}
-        else
-          {:reply,
-           {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+              {:reply, :ok, socket}
+            else
+              {:reply, {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+            end
+
+          error ->
+            {:reply, {:error, %{reason: inspect(error)}}, socket}
         end
+
+      {:error, :no_game_active} ->
+        {:reply, {:error, %{reason: "no_game_active"}}, socket}
+
+      {:error, {:wrong_game_type, _}} ->
+        {:reply, {:error, %{reason: "wrong_game_type"}}, socket}
 
       error ->
         {:reply, {:error, %{reason: inspect(error)}}, socket}
@@ -541,24 +571,39 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("request_solo", _payload, socket) do
-    room_id = socket.assigns.room_id
-    tenant_id = socket.assigns.tenant_id
-    student_id = socket.assigns.student_id
+    case validate_game_active(socket, :improvisation_jam) do
+      :ok ->
+        room_id = socket.assigns.room_id
+        tenant_id = socket.assigns.tenant_id
+        student_id = socket.assigns.student_id
 
-    {:ok, turn_info} = SessionManager.get_current_turn(room_id, tenant_id)
+        case SessionManager.get_current_turn(room_id, tenant_id) do
+          {:ok, turn_info} ->
+            if turn_info.current_turn == student_id do
+              :ok =
+                SessionManager.update_game_state(room_id, tenant_id, %{
+                  current_soloist: student_id,
+                  improvisation_state: :solo_active
+                })
 
-    if turn_info.current_turn == student_id do
-      :ok =
-        SessionManager.update_game_state(room_id, tenant_id, %{
-          current_soloist: student_id,
-          improvisation_state: :solo_active
-        })
+              broadcast!(socket, "solo_granted", %{soloist: student_id})
+              {:reply, :ok, socket}
+            else
+              {:reply, {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+            end
 
-      broadcast!(socket, "solo_granted", %{soloist: student_id})
-      {:reply, :ok, socket}
-    else
-      {:reply,
-       {:error, %{reason: "not_your_turn", current_turn: turn_info.current_turn}}, socket}
+          error ->
+            {:reply, {:error, %{reason: inspect(error)}}, socket}
+        end
+
+      {:error, :no_game_active} ->
+        {:reply, {:error, %{reason: "no_game_active"}}, socket}
+
+      {:error, {:wrong_game_type, _}} ->
+        {:reply, {:error, %{reason: "wrong_game_type"}}, socket}
+
+      error ->
+        {:reply, {:error, %{reason: inspect(error)}}, socket}
     end
   end
 
@@ -626,13 +671,30 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_in("record_response", %{"response" => response_pattern}, socket) do
-    room_id = socket.assigns.room_id
-    tenant_id = socket.assigns.tenant_id
-    student_id = socket.assigns.student_id
+    case validate_game_active(socket, :call_and_response) do
+      :ok ->
+        room_id = socket.assigns.room_id
+        tenant_id = socket.assigns.tenant_id
+        student_id = socket.assigns.student_id
 
-    :ok = SessionManager.record_response(room_id, tenant_id, student_id, response_pattern)
-    broadcast!(socket, "response_recorded", %{student_id: student_id})
-    {:reply, :ok, socket}
+        case SessionManager.record_response(room_id, tenant_id, student_id, response_pattern) do
+          :ok ->
+            broadcast!(socket, "response_recorded", %{student_id: student_id})
+            {:reply, :ok, socket}
+
+          error ->
+            {:reply, {:error, %{reason: inspect(error)}}, socket}
+        end
+
+      {:error, :no_game_active} ->
+        {:reply, {:error, %{reason: "no_game_active"}}, socket}
+
+      {:error, {:wrong_game_type, _}} ->
+        {:reply, {:error, %{reason: "wrong_game_type"}}, socket}
+
+      error ->
+        {:reply, {:error, %{reason: inspect(error)}}, socket}
+    end
   end
 
   def handle_in("validate_response", %{"student_id" => student_id}, socket) do

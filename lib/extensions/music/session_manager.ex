@@ -13,6 +13,8 @@ defmodule Realtime.Music.SessionManager do
   require Logger
 
   alias Realtime.Music.{Supervisor, TurnManager, PatternMatcher}
+  alias Realtime.Music.Schemas.GameSession
+  alias Realtime.Repo
 
   ## Client API
 
@@ -174,6 +176,53 @@ defmodule Realtime.Music.SessionManager do
   """
   def get_response_validations(room_id, tenant_id) do
     GenServer.call(__MODULE__, {:get_response_validations, room_id, tenant_id})
+  end
+
+  @doc """
+  Save current game session to database (async, non-blocking).
+  """
+  def save_game_session(room_id, tenant_id) do
+    Task.start(fn ->
+      case get_room(room_id) do
+        {:ok, room} ->
+          if room.tenant_id == tenant_id and not is_nil(room.game_type) do
+            changeset =
+              GameSession.changeset(%GameSession{}, %{
+                room_id: room_id,
+                tenant_id: tenant_id,
+                game_type: Atom.to_string(room.game_type),
+                game_state: room.game_state,
+                started_at: DateTime.utc_now()
+              })
+
+            case Repo.insert(changeset) do
+              {:ok, _session} -> :ok
+              {:error, _changeset} -> :error
+            end
+          else
+            :error
+          end
+
+        _ ->
+          :error
+      end
+    end)
+
+    :ok
+  end
+
+  @doc """
+  Load game sessions for a room.
+  """
+  def get_game_sessions(room_id, tenant_id) do
+    import Ecto.Query
+
+    query =
+      from gs in GameSession,
+        where: gs.room_id == ^room_id and gs.tenant_id == ^tenant_id,
+        order_by: [desc: gs.started_at]
+
+    Repo.all(query)
   end
 
   def start_link(_opts) do
@@ -393,9 +442,11 @@ defmodule Realtime.Music.SessionManager do
   end
 
   @impl true
-  def handle_call({:start_turn_rotation, room_id, tenant_id, student_ids, turn_duration_seconds},
+  def handle_call(
+        {:start_turn_rotation, room_id, tenant_id, student_ids, turn_duration_seconds},
         _from,
-        state) do
+        state
+      ) do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
@@ -521,8 +572,7 @@ defmodule Realtime.Music.SessionManager do
   end
 
   @impl true
-  def handle_call({:record_response, room_id, tenant_id, student_id, response_pattern}, _from,
-        state) do
+  def handle_call({:record_response, room_id, tenant_id, student_id, response_pattern}, _from, state) do
     case Map.get(state, room_id) do
       nil ->
         {:reply, {:error, :not_found}, state}
