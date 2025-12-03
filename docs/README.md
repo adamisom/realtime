@@ -158,9 +158,10 @@ Quick guide to all documentation for the music extension project.
 
 1. **`IMPLEMENTATION_PLAN.md`** - The roadmap with tasks, code samples, and files to modify
 2. **`IMPLEMENTATION_TESTS.md`** - Test examples to reference when writing tests
-3. **`QUALITY_GUIDELINES.md`** - Quality checklist for end-of-implementation review
-4. **`CODEBASE_ARCHITECTURE.md`** - Understanding how the system works (tenants, channels, PubSub)
-5. **`DEVELOPMENT_WORKFLOW_ITERATIVE.md`** - The implement → test → iterate workflow
-6. **`TESTING_WITHOUT_FRONTEND.md`** - How to test backend features
-7. **`ELIXIR_IDIOMS_TENANT.md`** - Elixir patterns for tenant_id (quick reference)
-8. **`DEVELOPMENT_WORKFLOW.md`** - Only reference as needed to look up specific commands
+3. **`IMPLEMENTATION_ANALYSIS.md`** - Analysis of potential pitfalls, gaps, and implementation challenges
+4. **`QUALITY_GUIDELINES.md`** - Quality checklist for end-of-implementation review
+5. **`CODEBASE_ARCHITECTURE.md`** - Understanding how the system works (tenants, channels, PubSub)
+6. **`DEVELOPMENT_WORKFLOW_ITERATIVE.md`** - The implement → test → iterate workflow
+7. **`TESTING_WITHOUT_FRONTEND.md`** - How to test backend features
+8. **`ELIXIR_IDIOMS_TENANT.md`** - Elixir patterns for tenant_id (quick reference)
+9. **`DEVELOPMENT_WORKFLOW.md`** - Only reference as needed to look up specific commands
