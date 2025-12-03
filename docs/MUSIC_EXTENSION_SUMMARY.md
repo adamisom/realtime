@@ -358,3 +358,20 @@ reflections = from r in Realtime.Music.Schemas.StudentReflection,
 For detailed implementation plans, see `docs/MUSIC_EXTENSION_NEXT_STEPS.md`:
 
 1. **Expand SEL Data Collection** - Capture richer engagement and learning data (8-10 hours)
+
+## Supporting Additional Music Games
+
+To support all 5 planned music education games (Rhythm Circle, Melody Builder, Dynamics Dance, Improvisation Jam, Call and Response), the following infrastructure enhancements would be needed. See `docs/MUSIC_GAMES_INFRASTRUCTURE_PLAN.md` for detailed requirements.
+
+### High-Priority Foundation
+- **Volume/Dynamics Support** - Add velocity (0-127) to note events for Dynamics Dance
+- **Game State Management** - Flexible state storage per game type in SessionManager
+- **Note Sequence Storage** - Store melodies, patterns, and calls for Melody Builder and Call and Response
+
+### Medium-Priority Features
+- **Turn Management** - Module for turn-taking games (Melody Builder, Improvisation Jam)
+- **Solo Mode Support** - Allow one student to solo while others accompany (Improvisation Jam)
+
+### Lower-Priority Enhancements
+- **Pattern Matching** - Compare student responses to teacher calls (Call and Response)
+- **Rhythm Pattern Storage** - Enhanced pattern support for Rhythm Circle
