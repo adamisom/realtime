@@ -615,6 +615,51 @@ end
 
 ---
 
+## Performance & Scalability Considerations
+
+### Performance Under Load
+
+**Considerations:**
+- Tempo server accuracy may degrade under high load
+- Use `System.monotonic_time/1` for accurate timing (already done)
+- Monitor tempo accuracy in production
+- Consider using Erlang's `:timer` module for more accurate timing
+
+**Monitoring:**
+- Track tempo drift over time
+- Monitor beat delivery latency
+- Alert if drift exceeds threshold (e.g., > 50ms)
+
+### PubSub Message Overhead
+
+**Current State:**
+- Each beat creates a PubSub message
+- With 100 rooms × 2 beats/second = 200 messages/second
+- Phoenix PubSub handles this easily (tested to 250k connections)
+
+**Considerations:**
+- Monitor message rates in production
+- Consider batching if needed (unlikely for current scale)
+- PubSub is efficient, but monitor for bottlenecks
+
+### Scalability Architecture
+
+**Current Architecture:**
+- Single `SessionManager` GenServer holds all room state
+- Single `RateLimiter` GenServer for all rate limiting
+- Tempo servers are distributed (one per room)
+
+**Considerations:**
+- `SessionManager` could become a bottleneck with thousands of rooms
+- Consider sharding by tenant_id or room_id
+- Consider using database for room state (see Phase 6 in IMPLEMENTATION_PLAN.md)
+- Rate limiter uses ETS (fast, but single node)
+
+**Future Enhancements:**
+- Shard `SessionManager` by tenant
+- Use distributed ETS for rate limiting across nodes
+- Consider Redis for distributed rate limiting
+
 ## Deployment Considerations
 
 ### Environment Variables
@@ -624,6 +669,33 @@ Key variables for music extensions:
 - `DB_HOST` - Main database host
 - `API_JWT_SECRET` - Secret for tenant management
 - `MAX_CONNECTIONS` - Max WebSocket connections
+
+**Music Extension Config:**
+```elixir
+config :realtime, :extensions,
+  music: %{
+    rate_limit: %{
+      notes_per_second: 10,
+      teacher_notes_per_second: 50
+    }
+  }
+```
+
+### Database Migrations
+
+- If implementing database persistence, create migrations
+- Consider migration strategy for existing in-memory state
+- Use `_realtime` schema prefix for music extension tables
+
+### Monitoring
+
+**Key Metrics to Track:**
+- Room creation/closure rates
+- Tempo server count
+- Rate limiting rejections
+- Authorization failures
+- Beat delivery latency
+- Tempo drift over time
 
 ### Scaling
 

@@ -25,8 +25,8 @@ Quick guide to all documentation for the music extension project.
 ### `IMPLEMENTATION_TESTS.md`
 **Test examples** organized by phase/subphase. Reference this when writing tests - copy/adapt the examples for your implementation.
 
-### `ROADBLOCKS.md`
-**Potential issues and solutions** you might encounter. Read this before starting to understand critical roadblocks (especially tenant_id propagation) and how to solve them.
+### `QUALITY_GUIDELINES.md`
+**Quality checklist** for end-of-implementation review. Use this during Phase 7 and before production deployment to ensure security, performance, testing, and code quality standards are met.
 
 ---
 
@@ -61,8 +61,6 @@ Quick guide to all documentation for the music extension project.
 ### `why build this.md`
 **The problem and opportunity** - why collaborative music education games don't exist, market gap, and vision for the project.
 
-### `project breakdown.md`
-**Original project plan** - detailed breakdown of what Developer #1 should build (music room channels, tempo server, teacher controls, etc.).
 
 ### `pedagogical findings.md`
 **Research on collaborative music pedagogy** - three approaches (ensemble, composition, technology), learning outcomes, and design principles.
@@ -73,8 +71,6 @@ Quick guide to all documentation for the music extension project.
 ### `SEL data collection.md`
 **Data collection strategy** - what SEL data to collect (behavioral, self-report, teacher observations), CASEL framework alignment, and database schema.
 
-### `THE UNCHARTED TERRITORY CHALLENGE.md`
-**Project requirements** - the challenge framework: fork existing repo, learn new language, build non-trivial features, ship production-ready software.
 
 ---
 
@@ -84,7 +80,7 @@ Quick guide to all documentation for the music extension project.
 1. `WARMUP_CHECKLIST.md` - Verify environment
 2. `QUICK_START_GUIDE.md` - Understand basics
 3. `CODEBASE_ARCHITECTURE.md` - Deep dive into architecture
-4. `ROADBLOCKS.md` - Understand potential issues
+4. `IMPLEMENTATION_PLAN.md` Phase 1 - Review security fixes and remaining work
 
 ### Before Implementing
 1. `IMPLEMENTATION_PLAN.md` - Read the full plan
@@ -99,7 +95,7 @@ Quick guide to all documentation for the music extension project.
 
 ### Reference (As Needed)
 - `DEVELOPMENT_WORKFLOW.md` - How to do X?
-- `ROADBLOCKS.md` - Troubleshooting
+- `QUALITY_GUIDELINES.md` - Quality checklist for final review
 - Context docs (`why build this.md`, etc.) - Remind yourself of goals
 
 ---
@@ -113,7 +109,7 @@ Quick guide to all documentation for the music extension project.
 → Read `CODEBASE_ARCHITECTURE.md` section on channels
 
 **"I'm stuck on a problem"**
-→ Check `ROADBLOCKS.md` for solutions
+→ Check `IMPLEMENTATION_PLAN.md` Phase 1 for security fixes, or `CODEBASE_ARCHITECTURE.md` for architecture questions
 
 **"How do I test this?"**
 → See `TESTING_WITHOUT_FRONTEND.md` and `IMPLEMENTATION_TESTS.md`
@@ -131,7 +127,7 @@ Quick guide to all documentation for the music extension project.
 ### Core Implementation Docs
 - `IMPLEMENTATION_PLAN.md` - What to build
 - `IMPLEMENTATION_TESTS.md` - How to test it
-- `ROADBLOCKS.md` - What might go wrong
+- `QUALITY_GUIDELINES.md` - Quality checklist for final review
 
 ### Workflow & Reference
 - `DEVELOPMENT_WORKFLOW_ITERATIVE.md` - Daily workflow
@@ -146,13 +142,11 @@ Quick guide to all documentation for the music extension project.
 
 ### Project Context
 - `why build this.md` - Problem & vision
-- `project breakdown.md` - Original plan
 - `pedagogical findings.md` - Education research
 - `SEL in music ed findings.md` - SEL research
 - `SEL data collection.md` - Data strategy
 - `elixir overview.md` - Elixir intro
 - `supabase overview.md` - Supabase intro
-- `THE UNCHARTED TERRITORY CHALLENGE.md` - Challenge framework
 
 ---
 
@@ -164,7 +158,7 @@ Quick guide to all documentation for the music extension project.
 
 1. **`IMPLEMENTATION_PLAN.md`** - The roadmap with tasks, code samples, and files to modify
 2. **`IMPLEMENTATION_TESTS.md`** - Test examples to reference when writing tests
-3. **`ROADBLOCKS.md`** - Critical issues and solutions
+3. **`QUALITY_GUIDELINES.md`** - Quality checklist for end-of-implementation review
 4. **`CODEBASE_ARCHITECTURE.md`** - Understanding how the system works (tenants, channels, PubSub)
 5. **`DEVELOPMENT_WORKFLOW_ITERATIVE.md`** - The implement → test → iterate workflow
 6. **`TESTING_WITHOUT_FRONTEND.md`** - How to test backend features

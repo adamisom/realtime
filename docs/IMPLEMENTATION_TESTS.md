@@ -89,7 +89,7 @@ defmodule Realtime.Music.TempoServerTimingTest do
     last_time = System.monotonic_time(:millisecond)
     
     for _ <- 1..10 do
-      assert_receive {:beat, _}, 600
+    assert_receive {:beat, _}, 600
       current_time = System.monotonic_time(:millisecond)
       interval = current_time - last_time
       intervals = intervals ++ [interval]
@@ -807,6 +807,91 @@ mix test test/realtime_web/channels/music_room_channel_rhythm_test.exs
 ### Run with Coverage
 ```bash
 mix test --cover
+```
+
+---
+
+## Testing Best Practices & Considerations
+
+### Testing Async Processes and Timing
+
+**Challenge:** Testing tempo server beats requires waiting for async messages, which can be flaky.
+
+**Guidelines:**
+- Use `ExUnit.Case, async: false` for timing-sensitive tests
+- Test timing logic separately (e.g., `ms_per_beat` calculation)
+- Use generous timeouts in `assert_receive` (e.g., 1000ms for 500ms intervals)
+- Consider mocking time for deterministic tests
+- Focus integration tests on actual timing, unit tests on logic
+
+**Example:**
+```elixir
+test "schedules beats at correct interval", %{test: test_name} do
+  use ExUnit.Case, async: false
+  
+  # Test timing logic
+  assert TempoServer.ms_per_beat(120) == 500
+  
+  # Test actual timing in integration test
+  # Use generous timeout
+  assert_receive {:beat, _}, 1000
+end
+```
+
+### Testing PubSub Broadcasts
+
+**Challenge:** Testing that beats are broadcast correctly requires PubSub setup and timing.
+
+**Guidelines:**
+- Test PubSub directly in integration tests
+- Subscribe to topic before starting tempo server
+- Use `assert_receive` with appropriate timeouts
+- Consider mocking PubSub for unit tests (verify calls, not actual broadcasts)
+
+**Example:**
+```elixir
+test "broadcasts beats to PubSub" do
+  tenant_id = "test-tenant"
+  room_id = "test-room"
+  topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
+  
+  Phoenix.PubSub.subscribe(Realtime.PubSub, topic)
+  
+  {:ok, _pid} = Supervisor.start_tempo_server(room_id, 120, tenant_id)
+  TempoServer.start_clock(room_id, tenant_id)
+  
+  assert_receive {:beat, 0}, 600
+  assert_receive {:beat, 1}, 600
+end
+```
+
+### Testing Multi-Tenant Scenarios
+
+**Challenge:** Ensuring tenant isolation works correctly.
+
+**Guidelines:**
+- Create multiple test tenants
+- Verify rooms from different tenants don't interfere
+- Test registry key collisions (same room_id, different tenants)
+- Test PubSub topic isolation
+- Test that tenant_id is verified in all operations
+
+**Example:**
+```elixir
+test "tenant isolation" do
+  tenant_a = "tenant-a"
+  tenant_b = "tenant-b"
+  room_id = "MUSIC-1234"
+  
+  # Create rooms with same ID but different tenants
+  {:ok, _} = SessionManager.create_room("teacher-1", tenant_a, bpm: 120)
+  {:ok, _} = SessionManager.create_room("teacher-2", tenant_b, bpm: 140)
+  
+  # Verify they don't interfere
+  {:ok, room_a} = SessionManager.get_room(room_id)
+  assert room_a.tenant_id == tenant_a
+  assert room_a.bpm == 120
+end
 ```
 
 ---
