@@ -17,7 +17,7 @@ This plan covers remaining work items and new infrastructure for music education
 
 **Note:** 
 - High-value unit test examples are in `docs/IMPLEMENTATION_TESTS.md`
-- **⚠️ CRITICAL:** See `docs/MUSIC_GAMES_PLAN_REVIEW.md` for code fixes and roadblocks
+- **⚠️ CRITICAL:** All fixes from code review are incorporated in this plan (see Phase 1 for security fixes)
 
 ---
 
@@ -96,6 +96,7 @@ Fix critical security issue and production concerns before adding new features.
 
 ```elixir
 def join("music_room:" <> room_id, params, socket) do
+  # Extract tenant_id from socket (set in UserSocket.connect/3)
   tenant_id = socket.assigns.tenant
 
   case SessionManager.get_room(room_id) do
@@ -105,16 +106,47 @@ def join("music_room:" <> room_id, params, socket) do
       case SessionManager.join_room(room_id, tenant_id, student_id) do
         :ok ->
           # ✅ FIX: Extract role from JWT claims (secure) instead of params (insecure)
+          # Note: socket.assigns.claims is set in UserSocket.connect/3 via JWT verification
           role = socket.assigns.claims["role"] || "student"
           
           socket =
             socket
             |> assign(:room_id, room_id)
-            |> assign(:tenant_id, tenant_id)
+            |> assign(:tenant_id, tenant_id)  # Store for later use in handlers
             |> assign(:student_id, student_id)
             |> assign(:role, role)  # Use JWT role, not client-provided
 
-          # ... rest of join logic ...
+          # Start tempo server if not already running
+          case Registry.lookup(Realtime.Music.Registry, {:tempo_server, tenant_id, room_id}) do
+            [] ->
+              case Realtime.Music.Supervisor.start_tempo_server(room_id, room.bpm, tenant_id) do
+                {:ok, _pid} -> :ok
+                error -> Logger.warning("Failed to start tempo server: #{inspect(error)}")
+              end
+            _ ->
+              :ok
+          end
+
+          # Subscribe to beat events from tempo server
+          tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
+          Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
+
+          # Start tempo clock
+          TempoServer.start_clock(room_id, tenant_id)
+
+          # Get current beat assignments and send to joining client
+          {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
+          socket = push(socket, "beat_assignments", %{assignments: assignments})
+
+          {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments}, socket}
+
+        {:error, reason} ->
+          {:error, %{reason: "Failed to join room: #{inspect(reason)}"}}
+      end
+
+    {:error, :not_found} ->
+      {:error, %{reason: "Room not found"}}
+  end
 ```
 
 #### Smoke Test
@@ -269,9 +301,21 @@ def handle_in("play_note", %{"midi" => midi} = payload, socket) do
     true -> velocity
   end
 
-  # ... existing rate limiting code ...
-  
-  # Broadcast with velocity
+  # Get rate limit based on role
+  max_per_second =
+    if is_teacher?(socket) do
+      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:teacher_notes_per_second]
+    else
+      Application.get_env(:realtime, :extensions)[:music][:rate_limit][:notes_per_second]
+    end
+
+  # Check rate limit
+  case RateLimiter.check_rate_limit(room_id, tenant_id, student_id, max_per_second) do
+    {:ok, :allowed} ->
+      # Record note play
+      RateLimiter.record_note_play(room_id, tenant_id, student_id)
+
+      # Broadcast with velocity
   broadcast!(socket, "student_note", %{
     midi: midi,
     velocity: velocity,
@@ -279,10 +323,19 @@ def handle_in("play_note", %{"midi" => midi} = payload, socket) do
     timestamp: System.system_time(:millisecond)
   })
 
-  # Log with velocity
-  SelTracker.log_participation(room_id, tenant_id, student_id, "note_played", %{midi: midi, velocity: velocity})
-  
-  {:reply, :ok, socket}
+      # Log with velocity
+      SelTracker.log_participation(room_id, tenant_id, student_id, "note_played", %{midi: midi, velocity: velocity})
+      
+      {:reply, :ok, socket}
+
+    {:error, :rate_limit_exceeded} ->
+      {:reply, {:error, %{reason: "rate_limit_exceeded"}}, socket}
+  end
+end
+
+def handle_in("play_note", _payload, socket) do
+  # Invalid payload (missing midi)
+  {:reply, {:error, %{reason: "midi required"}}, socket}
 end
 ```
 
@@ -620,13 +673,19 @@ defmodule Realtime.Music.TurnManager do
 
   @doc """
   Calculate remaining time for current turn (in seconds).
+  Returns nil if turn not started or completed.
   """
   def time_remaining(turn_manager) do
     case turn_manager.turn_state do
       :active ->
-        elapsed = System.system_time(:second) - turn_manager.turn_start_time
-        remaining = turn_manager.turn_duration_seconds - elapsed
-        max(0, remaining)
+        # Handle nil turn_start_time (shouldn't happen, but defensive)
+        if is_nil(turn_manager.turn_start_time) do
+          nil
+        else
+          elapsed = System.system_time(:second) - turn_manager.turn_start_time
+          remaining = turn_manager.turn_duration_seconds - elapsed
+          max(0, remaining)
+        end
       _ ->
         nil
     end
@@ -1382,11 +1441,12 @@ def handle_in("add_note", %{"midi" => midi, "velocity" => velocity}, socket) do
 end
 
 # ✅ FIX: Use tempo server beats or dedicated GenServer for playback
-# See MUSIC_GAMES_PLAN_REVIEW.md issue #3 for better approach
+# Note: Don't use Process.send_after in channel process (can be killed)
+# Better: Use dedicated PatternPlayer GenServer or schedule via tempo server beats
 def handle_in("play_melody", _payload, socket) do
   if is_teacher?(socket) do
     # Implementation: Use PatternPlayer GenServer or tempo server beats
-    # (See review document for recommended approach)
+    # Pattern: Create GenServer that schedules note broadcasts, not channel process
   end
 end
 ```
@@ -1596,6 +1656,8 @@ defmodule Realtime.Repo.Migrations.CreateMusicPatternsTable do
   use Ecto.Migration
 
   def change do
+    # ⚠️ CRITICAL: Use "_realtime" prefix for all music extension tables
+    # This ensures proper schema isolation in multi-tenant system
     create table(:music_patterns, prefix: "_realtime") do
       add :id, :binary_id, primary_key: true
       add :room_id, :string
@@ -1699,6 +1761,7 @@ defmodule Realtime.Repo.Migrations.CreateGameSessionsTable do
   use Ecto.Migration
 
   def change do
+    # ⚠️ CRITICAL: Use "_realtime" prefix for all music extension tables
     create table(:game_sessions, prefix: "_realtime") do
       add :id, :binary_id, primary_key: true
       add :room_id, :string, null: false
@@ -1906,7 +1969,7 @@ See `docs/IMPLEMENTATION_TESTS.md` → **Phase 7**
 - **Multi-tenant**: All new features properly isolate by `tenant_id`
 - **Rate Limiting**: Existing rate limiting applies to all note-playing events
 - **Security**: Role now extracted from JWT claims (fixed in Phase 1)
-- **Fixes Applied**: All fixes from `MUSIC_GAMES_PLAN_REVIEW.md` are incorporated
+- **All Code Fixes**: All fixes from code review are incorporated in this plan
 
 ---
 
