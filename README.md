@@ -49,6 +49,19 @@ This is a server built with Elixir using the [Phoenix Framework](https://www.pho
 
 For a more detailed overview head over to [Realtime guides](https://supabase.com/docs/guides/realtime).
 
+### Music Extension Fork
+
+This fork extends Supabase Realtime with a **Music Extension** that enables collaborative music education games. The extension adds:
+
+- **Real-time Music Rooms**: Multi-tenant music rooms with synchronized tempo and beat broadcasting
+- **5 Music Education Games**: Rhythm Circle, Melody Builder, Dynamics Dance, Improvisation Jam, and Call and Response
+- **Game Infrastructure**: Turn management, pattern matching, game state persistence, and SEL data collection
+- **Developer APIs**: Comprehensive Elixir APIs for session management, tempo control, game state, and analytics
+
+**Status:** ✅ Complete - All features implemented and tested (139+ unit tests)
+
+For detailed documentation, see [`docs/MUSIC_EXTENSION_SUMMARY.md`](./docs/MUSIC_EXTENSION_SUMMARY.md) and [`docs/README.md`](./docs/README.md).
+
 ### Does this server guarantee message delivery?
 
 The server does not guarantee that every message will be delivered to your clients so keep that in mind as you're using Realtime.
