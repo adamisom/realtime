@@ -9,7 +9,31 @@
 
 **Goal:** Verify core functionality works end-to-end
 
-### Prerequisites
+### Option 1: Automated Test Script (Recommended)
+
+Run the automated test suite which covers most manual tests:
+
+```bash
+./scripts/test_music_extension.sh
+```
+
+Or with mix directly:
+
+```bash
+mix run scripts/test_music_extension.exs
+```
+
+This script:
+- ✅ Tests all core features automatically
+- ✅ Recovers gracefully from failures
+- ✅ Collects and reports all failure points
+- ✅ Provides detailed success/failure statistics
+
+See `scripts/README.md` for more details.
+
+### Option 2: Manual Smoke Test
+
+**Prerequisites**
 - Server running: `mix phx.server`
 - Database migrated: `mix ecto.migrate`
 - IEx console open: `iex -S mix`
