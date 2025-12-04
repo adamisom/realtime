@@ -10,6 +10,13 @@ else
   IO.puts("⚠️  Warning: This script should be run with 'mix run' or the shell script wrapper")
 end
 
+# Try to load Generators from test support
+try do
+  Code.require_file("test/support/generators.ex")
+rescue
+  _ -> :ok
+end
+
 defmodule MusicExtensionTester do
   @moduledoc """
   Automated tester for music extension with error recovery and failure collection.
@@ -53,51 +60,50 @@ defmodule MusicExtensionTester do
     IO.puts("\n📋 Setting up test environment...")
 
     try do
-      # Get or create tenant
+      # For testing, we just need a tenant_id string - the music extension
+      # doesn't require a full tenant record in the database for basic operations
       tenant_id = "test-tenant-#{System.unique_integer([:positive])}"
+      IO.puts("  Using test tenant ID: #{tenant_id}")
 
-      # Use test support generators
+      # Try to get or create tenant record (optional - for database operations)
       tenant =
-        case try do
-               Realtime.Api.get_tenant_by_external_id(tenant_id)
-             rescue
-               _ -> nil
-             catch
-               _, _ -> nil
-             end do
-          nil ->
-            IO.puts("  Creating test tenant: #{tenant_id}")
-            # Use Generators for tenant creation
-            Generators.tenant_fixture(%{external_id: tenant_id})
+        try do
+          case Realtime.Api.get_tenant_by_external_id(tenant_id) do
+            nil ->
+              # Try to create tenant if possible, but don't fail if it doesn't work
+              try do
+                if Code.ensure_loaded?(Generators) and function_exported?(Generators, :tenant_fixture, 1) do
+                  Generators.tenant_fixture(%{external_id: tenant_id})
+                else
+                  nil
+                end
+              rescue
+                _ -> nil
+              catch
+                _, _ -> nil
+              end
 
-          existing ->
-            IO.puts("  Using existing tenant: #{tenant_id}")
-            existing
+            existing ->
+              existing
+          end
+        rescue
+          _ -> nil
+        catch
+          _, _ -> nil
         end
 
-      # Cache tenant for lookup (if Cachex is available)
-      try do
-        Cachex.put!(
-          Realtime.Tenants.Cache,
-          {{:get_tenant_by_external_id, 1}, [tenant_id]},
-          {:cached, tenant}
-        )
-      rescue
-        _ -> :ok
-      catch
-        _, _ -> :ok
-      end
-
-      # Create room
+      # Create room - this is the critical part
       {:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", tenant_id, bpm: 120)
 
       IO.puts("  ✅ Setup complete: Room #{room_id}")
       %{state | tenant: tenant, tenant_id: tenant_id, room_id: room_id}
     rescue
       e ->
+        IO.puts("  ❌ Setup failed: #{inspect(e)}")
         record_failure(state, "Setup", "Failed to setup test environment: #{inspect(e)}")
     catch
       :exit, reason ->
+        IO.puts("  ❌ Setup exited: #{inspect(reason)}")
         record_failure(state, "Setup", "Setup exited: #{inspect(reason)}")
     end
   end
@@ -229,7 +235,8 @@ defmodule MusicExtensionTester do
       {:ok, %{game_state: game_state}} =
         Realtime.Music.SessionManager.get_game_state(s.room_id, s.tenant_id)
 
-      assert length(game_state["melody_sequence"]) == 1, "Should have 1 note in melody"
+      # game_state uses atom keys, not string keys
+      assert length(game_state[:melody_sequence] || []) == 1, "Should have 1 note in melody"
       s
     end)
     |> test("Start Turn Rotation", fn s ->
@@ -241,7 +248,7 @@ defmodule MusicExtensionTester do
         )
 
       {:ok, turn_info} = Realtime.Music.SessionManager.get_current_turn(s.room_id, s.tenant_id)
-      assert turn_info.student_id in student_ids, "Current turn should be one of the students"
+      assert turn_info.current_turn in student_ids, "Current turn should be one of the students"
       s
     end)
     |> test("Set Call Pattern", fn s ->
@@ -294,13 +301,16 @@ defmodule MusicExtensionTester do
       s
     end)
     |> test("Load Game Sessions", fn s ->
-      sessions = Realtime.Music.SessionManager.get_game_sessions(s.room_id, s.tenant_id)
-      assert is_list(sessions), "Sessions should be a list"
+      # Only query if room_id and tenant_id are not nil
+      if s.room_id != nil and s.tenant_id != nil do
+        sessions = Realtime.Music.SessionManager.get_game_sessions(s.room_id, s.tenant_id)
+        assert is_list(sessions), "Sessions should be a list"
 
-      if length(sessions) > 0 do
-        session = hd(sessions)
-        assert Map.has_key?(session, :game_type), "Session should have game_type"
-        assert Map.has_key?(session, :game_state), "Session should have game_state"
+        if length(sessions) > 0 do
+          session = hd(sessions)
+          assert Map.has_key?(session, :game_type), "Session should have game_type"
+          assert Map.has_key?(session, :game_state), "Session should have game_state"
+        end
       end
 
       s
@@ -365,19 +375,25 @@ defmodule MusicExtensionTester do
   defp test(state, test_name, test_fn) do
     state = %{state | test_count: state.test_count + 1}
 
-    try do
-      new_state = test_fn.(state)
-      IO.puts("  ✅ #{test_name}")
-      %{new_state | pass_count: new_state.pass_count + 1, successes: [test_name | new_state.successes]}
-    rescue
-      e ->
-        error_msg = Exception.message(e)
-        IO.puts("  ❌ #{test_name}: #{error_msg}")
-        record_failure(state, test_name, error_msg)
-    catch
-      :exit, reason ->
-        IO.puts("  ❌ #{test_name}: Process exited - #{inspect(reason)}")
-        record_failure(state, test_name, "Process exited: #{inspect(reason)}")
+    # Skip test if setup failed (no tenant_id or room_id)
+    if state.tenant_id == nil or state.room_id == nil do
+      IO.puts("  ⏭️  #{test_name}: Skipped (setup failed)")
+      state
+    else
+      try do
+        new_state = test_fn.(state)
+        IO.puts("  ✅ #{test_name}")
+        %{new_state | pass_count: new_state.pass_count + 1, successes: [test_name | new_state.successes]}
+      rescue
+        e ->
+          error_msg = Exception.message(e)
+          IO.puts("  ❌ #{test_name}: #{error_msg}")
+          record_failure(state, test_name, error_msg)
+      catch
+        :exit, reason ->
+          IO.puts("  ❌ #{test_name}: Process exited - #{inspect(reason)}")
+          record_failure(state, test_name, "Process exited: #{inspect(reason)}")
+      end
     end
   end
 
@@ -427,7 +443,7 @@ defmodule MusicExtensionTester do
       IO.puts("\n🎉 All tests passed!")
     end
 
-    IO.puts("\n" |> String.duplicate(60, "-"))
+    IO.puts(String.duplicate("-", 60))
 
     # Exit with appropriate code
     if state.fail_count > 0 do

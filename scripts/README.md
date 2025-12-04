@@ -18,31 +18,41 @@ mix run scripts/test_music_extension.exs
 
 ## What It Tests
 
-The automated test script covers:
+The automated test script covers **24 tests** across 5 categories:
 
-### Core Features
-- Room creation and management
-- Room joining (single and multiple students)
-- Beat assignment and clearing
-- Tempo server operations
-- Tempo get/set operations
-- Clock start/stop
+### Core Features (6 tests)
+- Room Creation (line 115) - Creates room, validates ID format (MUSIC-####)
+- Get Room (line 121) - Retrieves room and validates BPM/teacher_id
+- Join Room (line 127) - Single student joins room
+- Multiple Students Join (line 133) - Multiple students join room
+- Beat Assignment (line 140) - Assigns beat to student
+- Clear Beat Assignment (line 146) - Clears beat assignment
 
-### Game Features
-- Game type setting
-- Game state updates
-- Turn rotation
-- Call and response pattern matching
-- Pattern recording and validation
+### Tempo Server (6 tests)
+- Start Tempo Server (line 158) - Verifies tempo server starts and registers
+- Get Tempo (line 181) - Retrieves current BPM (120)
+- Set Tempo (line 186) - Changes tempo to 140 BPM
+- Invalid BPM Rejected (line 192) - Rejects BPM 0 (out of range)
+- Start Clock (line 197) - Starts the beat clock
+- Stop Clock (line 206) - Stops the beat clock
 
-### Database Persistence
-- Game session saving and loading
-- SEL participation event logging
+### Game Features (6 tests)
+- Set Game Type - Melody Builder (line 223) - Sets game type
+- Update Game State (line 229) - Updates game state with melody sequence
+- Start Turn Rotation (line 242) - Starts turn rotation with student queue
+- Set Call Pattern (line 254) - Sets call pattern for call-and-response
+- Record Response (line 261) - Records student response pattern
+- Validate Response (line 266) - Validates response and returns match/accuracy
 
-### Error Handling
-- Non-existent room handling
-- Invalid BPM validation
-- Game type validation
+### Database Persistence (3 tests)
+- Save Game Session (line 281) - Saves game session to database
+- Load Game Sessions (line 303) - Loads saved sessions from database
+- SEL Participation Logging (line 318) - Logs SEL participation events
+
+### Error Handling (3 tests)
+- Get Non-Existent Room (line 354) - Returns `:not_found` for invalid room
+- Invalid BPM Range (line 359) - Rejects BPM > 299
+- Game Type Validation (line 364) - Validates game type changes
 
 ## Features
 
