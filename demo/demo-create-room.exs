@@ -1,6 +1,6 @@
 # Script to create a music room for testing
-# Usage: mix run demo/create-room.exs [teacher_id] [tenant_id] [bpm]
-# Example: mix run demo/create-room.exs teacher-1 test-tenant 120
+# Usage: mix run demo/demo-create-room.exs [teacher_id] [tenant_id] [bpm]
+# Example: mix run demo/demo-create-room.exs teacher-1 test-tenant 120
 
 alias Realtime.Music.SessionManager
 
@@ -24,7 +24,7 @@ case SessionManager.create_room(teacher_id, tenant_id, bpm: bpm) do
     IO.puts("BPM: #{bpm}")
     IO.puts("\n📋 Copy this room ID to use in the demo:")
     IO.puts(room_id)
-    IO.puts("\n💡 Tip: Use demo/launch-test-users.sh to open multiple test users")
+    IO.puts("\n💡 Tip: Use demo/demo-launch-test-users.sh to open multiple test users")
 
   {:error, reason} ->
     IO.puts("\n❌ Failed to create room:")

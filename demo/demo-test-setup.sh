@@ -1,6 +1,6 @@
 #!/bin/bash
 # Complete test setup: creates room and launches test users
-# Usage: ./demo/test-setup.sh [teacher_id] [tenant_id] [bpm]
+# Usage: ./demo/demo-test-setup.sh [teacher_id] [tenant_id] [bpm]
 
 set -e
 
@@ -26,7 +26,7 @@ fi
 
 # Create room
 echo "📝 Creating room..."
-ROOM_OUTPUT=$(mix run demo/create-room.exs "$TEACHER_ID" "$TENANT_ID" "$BPM" 2>&1)
+ROOM_OUTPUT=$(mix run demo/demo-create-room.exs "$TEACHER_ID" "$TENANT_ID" "$BPM" 2>&1)
 ROOM_ID=$(echo "$ROOM_OUTPUT" | grep -E "^MUSIC-" | head -1)
 
 if [ -z "$ROOM_ID" ]; then
@@ -41,7 +41,7 @@ echo ""
 
 # Launch test users
 echo "🚀 Launching test users..."
-./demo/launch-test-users.sh "$ROOM_ID"
+./demo/demo-launch-test-users.sh "$ROOM_ID"
 
 echo ""
 echo "✨ Setup complete!"

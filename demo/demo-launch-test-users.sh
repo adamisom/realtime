@@ -1,7 +1,7 @@
 #!/bin/bash
 # Launch multiple browser tabs for testing with different users
-# Usage: ./demo/launch-test-users.sh [room_id] [demo_url]
-# Example: ./demo/launch-test-users.sh MUSIC-1234 file:///path/to/demo/index.html
+# Usage: ./demo/demo-launch-test-users.sh [room_id] [demo_url]
+# Example: ./demo/demo-launch-test-users.sh MUSIC-1234 file:///path/to/demo/index.html
 
 set -e
 
@@ -24,10 +24,10 @@ fi
 # If no room ID provided, try to create one
 if [ -z "$ROOM_ID" ]; then
     echo "📝 No room ID provided. Creating a new room..."
-    ROOM_ID=$(mix run demo/create-room.exs teacher-1 test-tenant 120 2>&1 | grep -E "^MUSIC-" | head -1)
+    ROOM_ID=$(mix run demo/demo-create-room.exs teacher-1 test-tenant 120 2>&1 | grep -E "^MUSIC-" | head -1)
     if [ -z "$ROOM_ID" ]; then
         echo "❌ Failed to create room. Please create one manually:"
-        echo "   mix run demo/create-room.exs teacher-1 test-tenant 120"
+        echo "   mix run demo/demo-create-room.exs teacher-1 test-tenant 120"
         exit 1
     fi
     echo "✅ Created room: $ROOM_ID"

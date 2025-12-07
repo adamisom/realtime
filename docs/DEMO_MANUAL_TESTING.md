@@ -12,7 +12,7 @@
 
 **One-command setup:**
 ```bash
-./demo/test-setup.sh
+./demo/demo-test-setup.sh
 ```
 
 This will:
@@ -26,13 +26,13 @@ Then just click "Join Room" in each tab and start testing!
 
 1. **Create a room:**
    ```bash
-   mix run demo/create-room.exs teacher-1 test-tenant 120
+   mix run demo/demo-create-room.exs teacher-1 test-tenant 120
    # Copy the room_id (e.g., "MUSIC-1234")
    ```
 
 2. **Launch test users:**
    ```bash
-   ./demo/launch-test-users.sh MUSIC-1234
+   ./demo/demo-launch-test-users.sh MUSIC-1234
    # Opens 5 tabs with pre-filled values
    ```
 
@@ -241,7 +241,7 @@ Then just click "Join Room" in each tab and start testing!
 ### Edge Cases
 
 #### Test 22: Multiple Simultaneous Users
-- [ ] Use automated setup: `./demo/test-setup.sh` (launches 5 users)
+- [ ] Use automated setup: `./demo/demo-test-setup.sh` (launches 5 users)
 - [ ] Or manually: Open 3+ browser tabs, join same room with different student IDs
 - [ ] All users play notes simultaneously
 - [ ] ✅ Verify: All notes broadcast to all users
