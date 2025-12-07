@@ -150,12 +150,46 @@
     </div>
 
     <!-- Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/phoenix@latest/dist/phoenix.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phoenix@1.7.2/dist/phoenix.min.js" 
+            onerror="loadPhoenixFallback()"></script>
     <script src="https://cdn.jsdelivr.net/npm/tone@latest/build/Tone.min.js"></script>
+    <script>
+        function loadPhoenixFallback() {
+            console.log('Primary CDN failed, trying fallback...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/phoenix@1.7.2/dist/phoenix.min.js';
+            script.onerror = function() {
+                console.error('All CDN sources failed. Please check your internet connection.');
+                alert('Failed to load Phoenix library from CDN. Please check your internet connection or serve the file via HTTP (python3 -m http.server).');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     
     <script>
+        // Wait for Phoenix to load
+        function waitForPhoenix(callback, maxAttempts = 50) {
+            if (typeof Phoenix !== 'undefined') {
+                callback();
+            } else if (maxAttempts > 0) {
+                setTimeout(() => waitForPhoenix(callback, maxAttempts - 1), 100);
+            } else {
+                console.error('Phoenix library failed to load after 5 seconds');
+                alert('Failed to load Phoenix library. Please check your internet connection and refresh the page.');
+            }
+        }
+        
+        // Wait for both libraries before initializing
+        waitForPhoenix(() => {
+            console.log('Phoenix loaded, initializing...');
+            if (typeof Tone === 'undefined') {
+                // Tone.js will load on first click, that's fine
+            }
         // Configuration
-        const WS_URL = "ws://localhost:4000/socket";
+        // Get tenant from URL or use default
+        const urlParams = new URLSearchParams(window.location.search);
+        const tenantId = urlParams.get('tenant_id') || 'test-tenant';
+        const WS_URL = `ws://${tenantId}.localhost:4000/socket/websocket?vsn=2.0.0`;
         let socket = null;
         let channel = null;
         let currentRole = "student";
@@ -237,11 +271,9 @@
             }
             
             socket = new Phoenix.Socket(WS_URL, {
-                params: { token: token },
+                params: { apikey: token },
                 logger: (kind, msg, data) => {
-                    if (kind === "error") {
-                        log(`${kind}: ${msg}`, data);
-                    }
+                    log(`${kind}: ${msg}`, data);
                 }
             });
             
@@ -266,6 +298,13 @@
             socket.onError((error) => {
                 log("Socket error", error);
                 updateConnectionStatus(false);
+            });
+            
+            // Log connection state changes for debugging
+            socket.onMessage((event, payload, ref) => {
+                if (event === "phx_error") {
+                    log("Phoenix error", payload);
+                }
             });
         }
 
@@ -634,48 +673,49 @@
             }
         }
 
-        // Initialize on page load
-        document.addEventListener("DOMContentLoaded", () => {
-            createNoteButtons();
-            autoFillFromUrl();
-            initSocket();
-            
-            // Initialize audio on first click
-            document.addEventListener("click", () => {
-                if (!synth) {
-                    initAudio();
-                }
-            }, { once: true });
-            
-            // Join button
-            document.getElementById("join-btn").addEventListener("click", () => {
-                const roomId = document.getElementById("room-id").value.trim();
-                const studentId = document.getElementById("student-id").value.trim();
-                const role = document.querySelector('input[name="role"]:checked').value;
+            // Initialize on page load
+            document.addEventListener("DOMContentLoaded", () => {
+                createNoteButtons();
+                autoFillFromUrl();
+                initSocket();
                 
-                if (!roomId || !studentId) {
-                    alert("Please enter both Room ID and Student ID");
-                    return;
-                }
-                
-                if (currentRole !== role) {
-                    if (socket) {
-                        socket.disconnect();
+                // Initialize audio on first click
+                document.addEventListener("click", () => {
+                    if (!synth) {
+                        initAudio();
                     }
-                    initSocket(role);
-                    setTimeout(() => {
+                }, { once: true });
+                
+                // Join button
+                document.getElementById("join-btn").addEventListener("click", () => {
+                    const roomId = document.getElementById("room-id").value.trim();
+                    const studentId = document.getElementById("student-id").value.trim();
+                    const role = document.querySelector('input[name="role"]:checked').value;
+                    
+                    if (!roomId || !studentId) {
+                        alert("Please enter both Room ID and Student ID");
+                        return;
+                    }
+                    
+                    if (currentRole !== role) {
+                        if (socket) {
+                            socket.disconnect();
+                        }
+                        initSocket(role);
+                        setTimeout(() => {
+                            joinRoom(roomId, studentId);
+                        }, 500);
+                    } else {
                         joinRoom(roomId, studentId);
-                    }, 500);
-                } else {
-                    joinRoom(roomId, studentId);
-                }
+                    }
+                });
+                
+                // Leave button
+                document.getElementById("leave-btn").addEventListener("click", () => {
+                    leaveRoom();
+                });
             });
-            
-            // Leave button
-            document.getElementById("leave-btn").addEventListener("click", () => {
-                leaveRoom();
-            });
-        });
+        }); // End waitForPhoenix callback
     </script>
 </body>
 </html>

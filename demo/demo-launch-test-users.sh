@@ -8,16 +8,24 @@ set -e
 ROOM_ID="${1:-}"
 DEMO_URL="${2:-}"
 
-# Get absolute path to demo/index.html if not provided
+# Get demo URL - use provided URL or default to HTTP server
 if [ -z "$DEMO_URL" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    DEMO_FILE="$SCRIPT_DIR/index.html"
-    if [ -f "$DEMO_FILE" ]; then
-        DEMO_URL="file://$DEMO_FILE"
+    # Default to HTTP server if running, otherwise file://
+    if curl -s http://localhost:8080 > /dev/null 2>&1; then
+        DEMO_URL="http://localhost:8080/index.html"
     else
-        echo "❌ Error: demo/index.html not found at $DEMO_FILE"
-        echo "Usage: $0 [room_id] [demo_url]"
-        exit 1
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        DEMO_FILE="$SCRIPT_DIR/index.html"
+        if [ -f "$DEMO_FILE" ]; then
+            DEMO_URL="file://$DEMO_FILE"
+            echo "⚠️  Using file:// protocol (CDN may be blocked)"
+            echo "💡 Tip: Start HTTP server for better compatibility:"
+            echo "   cd demo && python3 -m http.server 8080"
+        else
+            echo "❌ Error: demo/index.html not found at $DEMO_FILE"
+            echo "Usage: $0 [room_id] [demo_url] [tenant_id]"
+            exit 1
+        fi
     fi
 fi
 
@@ -71,7 +79,8 @@ fi
 open_tab() {
     local role=$1
     local user_id=$2
-    local url="${DEMO_URL}?room_id=${ROOM_ID}&user_id=${user_id}&role=${role}"
+    local tenant_id="${3:-test-tenant}"
+    local url="${DEMO_URL}?room_id=${ROOM_ID}&user_id=${user_id}&role=${role}&tenant_id=${tenant_id}"
     
     if [[ "$OSTYPE" == "darwin"* ]]; then
         "$OPEN_CMD" "$BROWSER" "$url" 2>/dev/null || open "$url"
@@ -82,21 +91,24 @@ open_tab() {
     sleep 0.5  # Small delay between opens
 }
 
+# Get tenant ID (default to test-tenant)
+TENANT_ID="${3:-test-tenant}"
+
 # Launch users
 echo "👨‍🏫 Opening teacher..."
-open_tab "teacher" "teacher-1"
+open_tab "teacher" "teacher-1" "$TENANT_ID"
 
 echo "👨‍🎓 Opening student 1..."
-open_tab "student" "student-1"
+open_tab "student" "student-1" "$TENANT_ID"
 
 echo "👨‍🎓 Opening student 2..."
-open_tab "student" "student-2"
+open_tab "student" "student-2" "$TENANT_ID"
 
 echo "👨‍🎓 Opening student 3..."
-open_tab "student" "student-3"
+open_tab "student" "student-3" "$TENANT_ID"
 
 echo "👨‍🎓 Opening student 4..."
-open_tab "student" "student-4"
+open_tab "student" "student-4" "$TENANT_ID"
 
 echo ""
 echo "✅ Launched 5 browser tabs:"
