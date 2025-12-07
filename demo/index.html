@@ -606,9 +606,38 @@
                 });
         }
 
+        // Parse URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                room_id: params.get('room_id') || params.get('roomId'),
+                user_id: params.get('user_id') || params.get('userId'),
+                role: params.get('role') || 'student'
+            };
+        }
+
+        // Auto-fill from URL parameters
+        function autoFillFromUrl() {
+            const params = getUrlParams();
+            if (params.room_id) {
+                document.getElementById("room-id").value = params.room_id;
+            }
+            if (params.user_id) {
+                document.getElementById("student-id").value = params.user_id;
+            }
+            if (params.role) {
+                const roleRadio = document.querySelector(`input[name="role"][value="${params.role}"]`);
+                if (roleRadio) {
+                    roleRadio.checked = true;
+                    currentRole = params.role;
+                }
+            }
+        }
+
         // Initialize on page load
         document.addEventListener("DOMContentLoaded", () => {
             createNoteButtons();
+            autoFillFromUrl();
             initSocket();
             
             // Initialize audio on first click

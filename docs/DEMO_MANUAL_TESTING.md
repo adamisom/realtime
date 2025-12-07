@@ -8,46 +8,47 @@
 - Server running: `mix phx.server`
 - Database accessible
 
-### Steps
+### Automated Setup (Recommended)
 
-1. **Create a room (IEx):**
-   ```elixir
-   iex> {:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", "test-tenant", bpm: 120)
+**One-command setup:**
+```bash
+./demo/test-setup.sh
+```
+
+This will:
+1. ✅ Create a room automatically
+2. ✅ Launch 5 browser tabs (1 teacher + 4 students)
+3. ✅ Auto-fill room ID and user IDs in each tab
+
+Then just click "Join Room" in each tab and start testing!
+
+### Manual Steps (Alternative)
+
+1. **Create a room:**
+   ```bash
+   mix run demo/create-room.exs teacher-1 test-tenant 120
    # Copy the room_id (e.g., "MUSIC-1234")
    ```
 
-2. **Generate JWT token (optional, for real auth):**
+2. **Launch test users:**
    ```bash
-   mix run demo/generate-token.exs test-tenant teacher
-   # Or use simplified token in demo (works for basic testing)
+   ./demo/launch-test-users.sh MUSIC-1234
+   # Opens 5 tabs with pre-filled values
    ```
 
-3. **Open demo:**
-   - Open `demo/index.html` in browser
-   - Or serve: `python3 -m http.server 8080` then visit `http://localhost:8080/demo/`
+3. **Join rooms:**
+   - Each tab should have room ID and user ID pre-filled
+   - Just click "Join Room" in each tab
+   - ✅ Verify: Connection status shows "Connected" in all tabs
 
-4. **Join as teacher:**
-   - Select "Teacher" role
-   - Enter room ID (from step 1)
-   - Enter student ID: `teacher-1`
-   - Click "Join Room"
-   - ✅ Verify: Connection status shows "Connected", room info displays
+4. **Test note playing:**
+   - In any student tab, press keyboard key "A" or click note button
+   - ✅ Verify: Note plays in all tabs, log shows "Note received"
 
-5. **Open second browser tab (student):**
-   - Select "Student" role
-   - Enter same room ID
-   - Enter student ID: `student-1`
-   - Click "Join Room"
-   - ✅ Verify: Both tabs connected, student tab shows beats
-
-6. **Test note playing:**
-   - In student tab, press keyboard key "A" or click note button
-   - ✅ Verify: Note plays in both tabs, log shows "Note received"
-
-7. **Test tempo change:**
+5. **Test tempo change:**
    - In teacher tab, move tempo slider to 140
    - Click "Set Tempo"
-   - ✅ Verify: Both tabs show BPM: 140, beat interval changes
+   - ✅ Verify: All tabs show BPM: 140, beat interval changes
 
 **✅ Success Criteria:**
 - Both users can join same room
@@ -240,8 +241,8 @@
 ### Edge Cases
 
 #### Test 22: Multiple Simultaneous Users
-- [ ] Open 3+ browser tabs
-- [ ] Join same room with different student IDs
+- [ ] Use automated setup: `./demo/test-setup.sh` (launches 5 users)
+- [ ] Or manually: Open 3+ browser tabs, join same room with different student IDs
 - [ ] All users play notes simultaneously
 - [ ] ✅ Verify: All notes broadcast to all users
 - [ ] ✅ Verify: Beats stay synchronized
