@@ -52,35 +52,29 @@ fi
 # Create room
 echo "📝 Creating room..."
 echo ""
-echo "⚠️  Note: If server is already running, run this in IEx instead:"
+echo "💡 Since the server is running, create the room in your IEx console:"
+echo ""
 echo "   {:ok, room_id} = Realtime.Music.SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM)"
 echo ""
-read -p "Continue with mix run? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+read -p "Enter the room ID (or press Enter to skip and create manually): " ROOM_ID
+echo ""
+
+if [ -z "$ROOM_ID" ]; then
+    echo "⏭️  Skipping room creation."
     echo ""
-    echo "Please create room manually in IEx, then run:"
-    echo "  ./demo/demo-launch-test-users.sh <ROOM_ID>"
+    echo "Create the room in IEx, then run:"
+    echo "  ./demo/demo-launch-test-users.sh <ROOM_ID> http://localhost:$HTTP_PORT/index.html $TENANT_ID"
     exit 0
 fi
 
-ROOM_OUTPUT=$(mix run --no-start -e "
-  Application.ensure_all_started(:realtime)
-  alias Realtime.Music.SessionManager
-  case SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM) do
-    {:ok, room_id} -> IO.puts(room_id)
-    {:error, reason} -> IO.puts(\"ERROR: #{inspect(reason)}\"); System.halt(1)
-  end
-" 2>&1)
-ROOM_ID=$(echo "$ROOM_OUTPUT" | grep -E "^MUSIC-" | head -1)
-
-if [ -z "$ROOM_ID" ]; then
-    echo "❌ Failed to create room"
-    echo "$ROOM_OUTPUT"
-    echo ""
-    echo "💡 Try running in IEx console instead:"
-    echo "   {:ok, room_id} = Realtime.Music.SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM)"
-    exit 1
+# Validate room ID format
+if [[ ! "$ROOM_ID" =~ ^MUSIC-[0-9]+$ ]]; then
+    echo "⚠️  Warning: Room ID format looks incorrect (expected MUSIC-####)"
+    read -p "Continue anyway? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 0
+    fi
 fi
 
 echo ""

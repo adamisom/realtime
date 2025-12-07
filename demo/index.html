@@ -150,32 +150,70 @@
     </div>
 
     <!-- Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/phoenix@1.7.2/dist/phoenix.min.js" 
+    <!-- Try local file first, then CDN fallback -->
+    <script src="phoenix.js" 
             onerror="loadPhoenixFallback()"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tone@latest/build/Tone.min.js"></script>
     <script>
+        // Define fallback function before using it
         function loadPhoenixFallback() {
-            console.log('Primary CDN failed, trying fallback...');
+            console.log('Local Phoenix.js not found, trying CDN...');
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/phoenix@1.7.2/dist/phoenix.min.js';
-            script.onerror = function() {
-                console.error('All CDN sources failed. Please check your internet connection.');
-                alert('Failed to load Phoenix library from CDN. Please check your internet connection or serve the file via HTTP (python3 -m http.server).');
-            };
-            document.head.appendChild(script);
+            // Try multiple CDN sources
+            const cdnUrls = [
+                'https://cdn.jsdelivr.net/npm/phoenix@1.7.2/dist/phoenix.js',
+                'https://unpkg.com/phoenix@1.7.2/dist/phoenix.js',
+                'https://raw.githubusercontent.com/phoenixframework/phoenix/v1.7.2/priv/static/phoenix.js'
+            ];
+            let currentIndex = 0;
+            
+            function tryNextCDN() {
+                if (currentIndex >= cdnUrls.length) {
+                    console.error('All CDN sources failed. Please check your internet connection.');
+                    alert('Failed to load Phoenix library. Please check your internet connection or ensure phoenix.js is in the demo directory.');
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = cdnUrls[currentIndex];
+                script.onload = function() {
+                    console.log('Phoenix loaded from CDN:', cdnUrls[currentIndex]);
+                    if (typeof window.initAfterPhoenix === 'function') {
+                        window.initAfterPhoenix();
+                    }
+                };
+                script.onerror = function() {
+                    console.log('CDN failed:', cdnUrls[currentIndex]);
+                    currentIndex++;
+                    tryNextCDN();
+                };
+                document.head.appendChild(script);
+            }
+            
+            tryNextCDN();
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@latest/build/Tone.min.js"></script>
     
     <script>
         // Wait for Phoenix to load
         function waitForPhoenix(callback, maxAttempts = 50) {
             if (typeof Phoenix !== 'undefined') {
+                console.log('Phoenix loaded successfully');
                 callback();
             } else if (maxAttempts > 0) {
                 setTimeout(() => waitForPhoenix(callback, maxAttempts - 1), 100);
             } else {
                 console.error('Phoenix library failed to load after 5 seconds');
-                alert('Failed to load Phoenix library. Please check your internet connection and refresh the page.');
+                console.log('Attempting fallback CDN...');
+                loadPhoenixFallback();
+                // Give fallback a chance
+                setTimeout(() => {
+                    if (typeof Phoenix !== 'undefined') {
+                        callback();
+                    } else {
+                        alert('Failed to load Phoenix library from all CDN sources. Please check your internet connection.');
+                    }
+                }, 2000);
             }
         }
         
