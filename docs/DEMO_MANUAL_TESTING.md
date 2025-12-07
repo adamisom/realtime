@@ -5,8 +5,27 @@
 **Goal:** Verify core functionality works end-to-end in under 5 minutes.
 
 ### Prerequisites
-- Server running: `mix phx.server`
-- Database accessible
+
+**Ensure database is running:**
+```bash
+# Start database containers (if using Docker)
+make dev_db
+
+# Or verify local PostgreSQL is running
+psql -h localhost -U postgres -c "SELECT 1;" > /dev/null 2>&1 || echo "Database not running"
+```
+
+**Ensure server is running:**
+```bash
+# Start server (in separate terminal)
+mix phx.server
+
+# Or with IEx console
+iex -S mix phx.server
+
+# Verify server is up
+curl http://localhost:4000/healthcheck || echo "Server not running"
+```
 
 ### Automated Setup (Recommended)
 
