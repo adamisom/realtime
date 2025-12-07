@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Extension Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+        }
+        button:hover:not(:disabled) {
+            background-color: #e8e8e8;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        #beat-indicator {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin: 20px auto;
+            transition: all 0.1s ease;
+            border: 3px solid #333;
+        }
+        #log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .note-button {
+            min-width: 80px;
+        }
+        .note-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        label {
+            margin-right: 15px;
+        }
+        #student-list div {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Music Extension Demo</h1>
+    
+    <!-- Connection Section -->
+    <div class="section">
+        <h2>Connection</h2>
+        <div id="connection-status" class="status disconnected">Disconnected</div>
+        <div>
+            <label>
+                <input type="radio" name="role" value="student" checked> Student
+            </label>
+            <label>
+                <input type="radio" name="role" value="teacher"> Teacher
+            </label>
+        </div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="room-id" placeholder="Room ID (e.g., MUSIC-1234)" style="width: 200px;">
+            <input type="text" id="student-id" placeholder="Student ID (e.g., student-1)" style="width: 200px;">
+            <button id="join-btn">Join Room</button>
+            <button id="leave-btn" disabled>Leave Room</button>
+        </div>
+        <div id="room-info"></div>
+    </div>
+    
+    <!-- Note Playing Section -->
+    <div class="section">
+        <h2>Play Notes</h2>
+        <div id="note-buttons"></div>
+        <p><strong>Keyboard:</strong> A, S, D, F, G, H, J, K (C4 to C5)</p>
+    </div>
+    
+    <!-- Beat Indicator Section -->
+    <div class="section">
+        <h2>Beat Indicator</h2>
+        <div id="beat-indicator"></div>
+        <div id="beat-count" style="text-align: center; font-size: 18px; margin: 10px 0;">Beat: 0</div>
+        <div id="bpm-display" style="text-align: center; font-size: 16px;">BPM: --</div>
+    </div>
+    
+    <!-- Teacher Controls Section -->
+    <div class="section" id="teacher-controls" style="display: none;">
+        <h2>Teacher Controls</h2>
+        <div style="margin: 15px 0;">
+            <label><strong>Tempo (BPM):</strong></label>
+            <input type="range" id="tempo-slider" min="60" max="180" value="120" style="width: 200px;">
+            <span id="tempo-value">120</span>
+            <button id="set-tempo-btn">Set Tempo</button>
+        </div>
+        <div>
+            <strong>Connected Students:</strong> <span id="student-count">0</span>
+        </div>
+        <div id="beat-assignment-section" style="margin-top: 15px;">
+            <h3>Beat Assignment</h3>
+            <div id="student-list"></div>
+        </div>
+    </div>
+    
+    <!-- Log Section -->
+    <div class="section">
+        <h2>Activity Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <!-- Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/phoenix@latest/dist/phoenix.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@latest/build/Tone.min.js"></script>
+    
+    <script>
+        // Configuration
+        const WS_URL = "ws://localhost:4000/socket";
+        let socket = null;
+        let channel = null;
+        let currentRole = "student";
+        let currentRoomId = null;
+        let currentStudentId = null;
+        let synth = null;
+        let beatAnimationTimeout = null;
+        let connectedStudents = [];
+
+        // Note mapping: keyboard key -> MIDI note
+        const NOTE_MAP = {
+            'a': 60, // C4
+            's': 62, // D4
+            'd': 64, // E4
+            'f': 65, // F4
+            'g': 67, // G4
+            'h': 69, // A4
+            'j': 71, // B4
+            'k': 72  // C5
+        };
+
+        const NOTE_NAMES = {
+            60: 'C4', 62: 'D4', 64: 'E4', 65: 'F4',
+            67: 'G4', 69: 'A4', 71: 'B4', 72: 'C5'
+        };
+
+        let keysPressed = new Set();
+
+        // JWT token generation (simplified for demo)
+        function generateJWT(role = "student") {
+            const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+            const payload = btoa(JSON.stringify({
+                role: role,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                iat: Math.floor(Date.now() / 1000)
+            }));
+            const signature = btoa("demo-signature");
+            return `${header}.${payload}.${signature}`;
+        }
+
+        // Logging
+        function log(message, data = null) {
+            const logEl = document.getElementById("log");
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement("div");
+            entry.textContent = `[${timestamp}] ${message}${data ? ' ' + JSON.stringify(data) : ''}`;
+            logEl.insertBefore(entry, logEl.firstChild);
+            console.log(message, data);
+        }
+
+        // Connection status
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById("connection-status");
+            const joinBtn = document.getElementById("join-btn");
+            const leaveBtn = document.getElementById("leave-btn");
+            
+            if (connected) {
+                statusEl.textContent = "Connected";
+                statusEl.className = "status connected";
+                joinBtn.disabled = false;
+            } else {
+                statusEl.textContent = "Disconnected";
+                statusEl.className = "status disconnected";
+                joinBtn.disabled = true;
+                leaveBtn.disabled = true;
+                if (channel) {
+                    channel = null;
+                }
+            }
+        }
+
+        // Initialize socket
+        function initSocket(role = "student") {
+            currentRole = role;
+            const token = generateJWT(role);
+            
+            if (socket) {
+                socket.disconnect();
+            }
+            
+            socket = new Phoenix.Socket(WS_URL, {
+                params: { token: token },
+                logger: (kind, msg, data) => {
+                    if (kind === "error") {
+                        log(`${kind}: ${msg}`, data);
+                    }
+                }
+            });
+            
+            socket.connect();
+            
+            socket.onOpen(() => {
+                log("Socket connected");
+                updateConnectionStatus(true);
+            });
+            
+            socket.onClose(() => {
+                log("Socket disconnected");
+                updateConnectionStatus(false);
+                setTimeout(() => {
+                    if (socket && !socket.isConnected()) {
+                        log("Attempting to reconnect...");
+                        socket.connect();
+                    }
+                }, 3000);
+            });
+            
+            socket.onError((error) => {
+                log("Socket error", error);
+                updateConnectionStatus(false);
+            });
+        }
+
+        // Join room
+        function joinRoom(roomId, studentId) {
+            if (!roomId || !studentId) {
+                alert("Please enter both Room ID and Student ID");
+                return;
+            }
+            
+            if (!roomId.match(/^MUSIC-\d+$/)) {
+                alert("Invalid room ID format. Should be MUSIC-####");
+                return;
+            }
+            
+            if (!socket || socket.connectionState() !== "open") {
+                alert("Socket not connected. Please wait for connection.");
+                return;
+            }
+            
+            if (channel) {
+                channel.leave();
+            }
+            
+            currentRoomId = roomId;
+            currentStudentId = studentId;
+            
+            const joinBtn = document.getElementById("join-btn");
+            joinBtn.disabled = true;
+            joinBtn.textContent = "Joining...";
+            
+            channel = socket.channel(`music_room:${roomId}`, {
+                student_id: studentId
+            });
+            
+            channel.join()
+                .receive("ok", (resp) => {
+                    log("Joined room successfully", resp);
+                    updateRoomInfo(resp);
+                    setupChannelHandlers();
+                    
+                    if (currentRole === "teacher") {
+                        document.getElementById("teacher-controls").style.display = "block";
+                    } else {
+                        document.getElementById("teacher-controls").style.display = "none";
+                    }
+                    
+                    joinBtn.textContent = "Join Room";
+                    joinBtn.disabled = true;
+                    document.getElementById("leave-btn").disabled = false;
+                })
+                .receive("error", (resp) => {
+                    log("Failed to join room", resp);
+                    alert("Failed to join room: " + (resp.reason || "Unknown error"));
+                    joinBtn.textContent = "Join Room";
+                    joinBtn.disabled = false;
+                })
+                .receive("timeout", () => {
+                    log("Join timeout");
+                    alert("Join request timed out");
+                    joinBtn.textContent = "Join Room";
+                    joinBtn.disabled = false;
+                });
+        }
+
+        function updateRoomInfo(roomData) {
+            const roomInfoEl = document.getElementById("room-info");
+            roomInfoEl.innerHTML = `
+                <p><strong>Room ID:</strong> ${roomData.room_id}</p>
+                <p><strong>BPM:</strong> ${roomData.bpm}</p>
+            `;
+            document.getElementById("bpm-display").textContent = `BPM: ${roomData.bpm}`;
+            document.getElementById("tempo-slider").value = roomData.bpm;
+            document.getElementById("tempo-value").textContent = roomData.bpm;
+        }
+
+        function leaveRoom() {
+            if (channel) {
+                channel.leave();
+                channel = null;
+            }
+            currentRoomId = null;
+            currentStudentId = null;
+            connectedStudents = [];
+            document.getElementById("room-info").innerHTML = "";
+            document.getElementById("join-btn").disabled = false;
+            document.getElementById("leave-btn").disabled = true;
+            log("Left room");
+        }
+
+        // Setup channel handlers
+        function setupChannelHandlers() {
+            if (!channel) return;
+            
+            // Handle incoming notes from other students
+            channel.on("student_note", (payload) => {
+                if (currentRole === "teacher") {
+                    addStudent(payload.student_id);
+                }
+                
+                log(`Note received from ${payload.student_id}: ${NOTE_NAMES[payload.midi] || payload.midi}`, payload);
+                
+                if (synth) {
+                    const freq = Tone.Frequency(payload.midi, "midi").toFrequency();
+                    const velocity = payload.velocity || 64;
+                    const volume = (velocity / 127) * 20 - 20;
+                    synth.triggerAttackRelease(freq, "8n", undefined, volume);
+                }
+            });
+            
+            // Handle beat events
+            channel.on("beat", (payload) => {
+                const beatNumber = payload.beat || 0;
+                updateBeatIndicator(beatNumber);
+                log(`Beat: ${beatNumber}`);
+            });
+            
+            // Handle tempo changes
+            channel.on("tempo_changed", (payload) => {
+                const bpm = payload.bpm;
+                document.getElementById("bpm-display").textContent = `BPM: ${bpm}`;
+                document.getElementById("tempo-slider").value = bpm;
+                document.getElementById("tempo-value").textContent = bpm;
+                log(`Tempo changed to ${bpm} BPM`);
+            });
+            
+            // Handle beat assignments
+            channel.on("beat_assignments", (payload) => {
+                log("Beat assignments received", payload);
+                if (currentRole === "student") {
+                    const myAssignment = payload[currentStudentId];
+                    if (myAssignment) {
+                        log(`Your assigned beat: ${myAssignment}`);
+                    }
+                }
+            });
+            
+            channel.on("beat_assignment_updated", (payload) => {
+                log("Beat assignment updated", payload);
+            });
+        }
+
+        // Beat indicator
+        function updateBeatIndicator(beatNumber) {
+            const indicator = document.getElementById("beat-indicator");
+            const beatCount = document.getElementById("beat-count");
+            
+            beatCount.textContent = `Beat: ${beatNumber}`;
+            
+            indicator.style.backgroundColor = "#4CAF50";
+            indicator.style.transform = "scale(1.2)";
+            indicator.style.transition = "all 0.1s";
+            
+            if (beatAnimationTimeout) {
+                clearTimeout(beatAnimationTimeout);
+            }
+            beatAnimationTimeout = setTimeout(() => {
+                indicator.style.backgroundColor = "#ccc";
+                indicator.style.transform = "scale(1)";
+            }, 100);
+        }
+
+        // Note playing
+        function playNote(midi, velocity = 80) {
+            if (!channel) {
+                log("Error: Not connected to a room");
+                return;
+            }
+            
+            const noteName = NOTE_NAMES[midi] || `MIDI ${midi}`;
+            log(`Playing: ${noteName} (MIDI ${midi})`);
+            
+            channel.push("play_note", {
+                midi: midi,
+                velocity: velocity
+            })
+            .receive("ok", () => {
+                // Note will be broadcast and we'll receive it via student_note
+            })
+            .receive("error", (resp) => {
+                log("Error playing note", resp);
+                if (resp.reason === "rate_limit_exceeded") {
+                    alert("Rate limit exceeded! Slow down.");
+                }
+            });
+        }
+
+        // Create note buttons
+        function createNoteButtons() {
+            const container = document.getElementById("note-buttons");
+            container.innerHTML = "";
+            
+            Object.entries(NOTE_MAP).forEach(([key, midi]) => {
+                const button = document.createElement("button");
+                button.textContent = `${key.toUpperCase()} - ${NOTE_NAMES[midi]}`;
+                button.className = "note-button";
+                button.dataset.midi = midi;
+                button.dataset.key = key;
+                button.addEventListener("click", () => {
+                    playNote(midi);
+                    button.classList.add("active");
+                    setTimeout(() => button.classList.remove("active"), 200);
+                });
+                container.appendChild(button);
+            });
+        }
+
+        // Keyboard handlers
+        document.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+            if (NOTE_MAP[key] && !keysPressed.has(key)) {
+                keysPressed.add(key);
+                playNote(NOTE_MAP[key]);
+                
+                const button = document.querySelector(`button[data-key="${key}"]`);
+                if (button) {
+                    button.classList.add("active");
+                }
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            const key = e.key.toLowerCase();
+            keysPressed.delete(key);
+            
+            const button = document.querySelector(`button[data-key="${key}"]`);
+            if (button) {
+                button.classList.remove("active");
+            }
+        });
+
+        // Audio setup
+        async function initAudio() {
+            await Tone.start();
+            synth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.1,
+                    sustain: 0.5,
+                    release: 0.3
+                }
+            }).toDestination();
+            log("Audio initialized");
+        }
+
+        // Student tracking
+        function addStudent(studentId) {
+            if (!connectedStudents.includes(studentId)) {
+                connectedStudents.push(studentId);
+                if (currentRole === "teacher") {
+                    updateStudentList(connectedStudents);
+                }
+            }
+        }
+
+        function updateStudentList(students) {
+            document.getElementById("student-count").textContent = students.length;
+            const listEl = document.getElementById("student-list");
+            listEl.innerHTML = "";
+            
+            students.forEach(studentId => {
+                const studentDiv = document.createElement("div");
+                studentDiv.innerHTML = `
+                    <strong>${studentId}</strong>
+                    <select id="beat-${studentId}" style="margin: 0 10px;">
+                        <option value="">No assignment</option>
+                        <option value="1">Beat 1</option>
+                        <option value="2">Beat 2</option>
+                        <option value="3">Beat 3</option>
+                        <option value="4">Beat 4</option>
+                    </select>
+                    <button onclick="assignBeat('${studentId}')">Assign</button>
+                `;
+                listEl.appendChild(studentDiv);
+            });
+        }
+
+        function assignBeat(studentId) {
+            if (!channel || currentRole !== "teacher") {
+                alert("Only teachers can assign beats");
+                return;
+            }
+            
+            const beatSelect = document.getElementById(`beat-${studentId}`);
+            const beat = parseInt(beatSelect.value);
+            
+            if (!beat) {
+                channel.push("assign_beat", {
+                    student_id: studentId,
+                    beat: null
+                });
+                log(`Cleared beat assignment for ${studentId}`);
+            } else {
+                channel.push("assign_beat", {
+                    student_id: studentId,
+                    beat: beat
+                })
+                .receive("ok", () => {
+                    log(`Assigned beat ${beat} to ${studentId}`);
+                })
+                .receive("error", (resp) => {
+                    log("Error assigning beat", resp);
+                });
+            }
+        }
+
+        window.assignBeat = assignBeat;
+
+        // Tempo control
+        document.getElementById("tempo-slider").addEventListener("input", (e) => {
+            document.getElementById("tempo-value").textContent = e.target.value;
+        });
+
+        document.getElementById("set-tempo-btn").addEventListener("click", () => {
+            if (!channel || currentRole !== "teacher") {
+                alert("Only teachers can change tempo");
+                return;
+            }
+            
+            const bpm = parseInt(document.getElementById("tempo-slider").value);
+            setTempo(bpm);
+        });
+
+        function setTempo(bpm) {
+            if (!channel) {
+                log("Error: Not connected to a room");
+                return;
+            }
+            
+            channel.push("set_tempo", { bpm: bpm })
+                .receive("ok", () => {
+                    log(`Tempo set to ${bpm} BPM`);
+                })
+                .receive("error", (resp) => {
+                    log("Error setting tempo", resp);
+                    alert("Failed to set tempo: " + (resp.reason || "Unknown error"));
+                });
+        }
+
+        // Initialize on page load
+        document.addEventListener("DOMContentLoaded", () => {
+            createNoteButtons();
+            initSocket();
+            
+            // Initialize audio on first click
+            document.addEventListener("click", () => {
+                if (!synth) {
+                    initAudio();
+                }
+            }, { once: true });
+            
+            // Join button
+            document.getElementById("join-btn").addEventListener("click", () => {
+                const roomId = document.getElementById("room-id").value.trim();
+                const studentId = document.getElementById("student-id").value.trim();
+                const role = document.querySelector('input[name="role"]:checked').value;
+                
+                if (!roomId || !studentId) {
+                    alert("Please enter both Room ID and Student ID");
+                    return;
+                }
+                
+                if (currentRole !== role) {
+                    if (socket) {
+                        socket.disconnect();
+                    }
+                    initSocket(role);
+                    setTimeout(() => {
+                        joinRoom(roomId, studentId);
+                    }, 500);
+                } else {
+                    joinRoom(roomId, studentId);
+                }
+            });
+            
+            // Leave button
+            document.getElementById("leave-btn").addEventListener("click", () => {
+                leaveRoom();
+            });
+        });
+    </script>
+</body>
+</html>
+
