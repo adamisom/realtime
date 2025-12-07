@@ -26,12 +26,35 @@ fi
 
 # Create room
 echo "📝 Creating room..."
-ROOM_OUTPUT=$(mix run demo/demo-create-room.exs "$TEACHER_ID" "$TENANT_ID" "$BPM" 2>&1)
+echo ""
+echo "⚠️  Note: If server is already running, run this in IEx instead:"
+echo "   {:ok, room_id} = Realtime.Music.SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM)"
+echo ""
+read -p "Continue with mix run? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "Please create room manually in IEx, then run:"
+    echo "  ./demo/demo-launch-test-users.sh <ROOM_ID>"
+    exit 0
+fi
+
+ROOM_OUTPUT=$(mix run --no-start -e "
+  Application.ensure_all_started(:realtime)
+  alias Realtime.Music.SessionManager
+  case SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM) do
+    {:ok, room_id} -> IO.puts(room_id)
+    {:error, reason} -> IO.puts(\"ERROR: #{inspect(reason)}\"); System.halt(1)
+  end
+" 2>&1)
 ROOM_ID=$(echo "$ROOM_OUTPUT" | grep -E "^MUSIC-" | head -1)
 
 if [ -z "$ROOM_ID" ]; then
     echo "❌ Failed to create room"
     echo "$ROOM_OUTPUT"
+    echo ""
+    echo "💡 Try running in IEx console instead:"
+    echo "   {:ok, room_id} = Realtime.Music.SessionManager.create_room(\"$TEACHER_ID\", \"$TENANT_ID\", bpm: $BPM)"
     exit 1
 fi
 
