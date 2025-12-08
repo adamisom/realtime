@@ -101,32 +101,30 @@ echo ""
 echo "🔑 Generating JWT tokens..."
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 STEP 1: Copy this command to your IEx console (where server is running):"
+echo "📋 Copy this command to your IEx console (where server is running):"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Application.put_env(:realtime, :db_enc_key, \"1234567890123456\"); alias Realtime.Crypto; tenant = case Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\") do nil -> case Realtime.Api.create_tenant(%{external_id: \"$TENANT_ID\", name: \"$TENANT_ID\", jwt_secret: \"demo-secret-key-1234567890123456\"}) do {:ok, t} -> t; error -> raise \"Failed to create tenant: #{inspect(error)}\" end; t -> t end; secret = Crypto.decrypt!(tenant.jwt_secret); signer = Joken.Signer.create(\"HS256\", secret); teacher_claims = %{role: \"teacher\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, teacher_claims); {:ok, teacher_jwt, _} = Joken.encode_and_sign(teacher_claims, signer); student_claims = %{role: \"student\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, student_claims); {:ok, student_jwt, _} = Joken.encode_and_sign(student_claims, signer); IO.puts(\"TEACHER_TOKEN=\" <> teacher_jwt); IO.puts(\"STUDENT_TOKEN=\" <> student_jwt)"
+echo "Application.put_env(:realtime, :db_enc_key, \"1234567890123456\"); alias Realtime.Crypto; tenant = case Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\") do nil -> case Realtime.Api.create_tenant(%{external_id: \"$TENANT_ID\", name: \"$TENANT_ID\", jwt_secret: \"demo-secret-key-1234567890123456\"}) do {:ok, t} -> t; error -> raise \"Failed to create tenant: #{inspect(error)}\" end; t -> t end; secret = Crypto.decrypt!(tenant.jwt_secret); signer = Joken.Signer.create(\"HS256\", secret); teacher_claims = %{role: \"teacher\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, teacher_claims); {:ok, teacher_jwt, _} = Joken.encode_and_sign(teacher_claims, signer); IO.puts(teacher_jwt)"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 STEP 2: Copy the output (both TEACHER_TOKEN= and STUDENT_TOKEN= lines)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-read -p "Paste the output here: " TOKEN_OUTPUT
+read -p "Paste the TEACHER token (just the token, no prefix): " TEACHER_TOKEN
+TEACHER_TOKEN=$(echo "$TEACHER_TOKEN" | sed 's/^TEACHER_TOKEN=//' | tr -d '\r\n ')
 
-TEACHER_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "TEACHER_TOKEN=" | sed 's/TEACHER_TOKEN=//' | tr -d '\r')
-STUDENT_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "STUDENT_TOKEN=" | sed 's/STUDENT_TOKEN=//' | tr -d '\r')
+echo ""
+echo "Now run this in IEx:"
+echo "student_claims = %{role: \"student\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, student_claims); {:ok, student_jwt, _} = Joken.encode_and_sign(student_claims, signer); IO.puts(student_jwt)"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+read -p "Paste the STUDENT token (just the token, no prefix): " STUDENT_TOKEN
+STUDENT_TOKEN=$(echo "$STUDENT_TOKEN" | sed 's/^STUDENT_TOKEN=//' | tr -d '\r\n ')
 
 if [ -z "$TEACHER_TOKEN" ] || [ -z "$STUDENT_TOKEN" ]; then
     echo ""
-    echo "❌ Could not parse tokens from your paste."
-    echo ""
-    echo "💡 Make sure you copied BOTH lines that look like:"
-    echo "   TEACHER_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    echo "   STUDENT_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    echo "❌ Tokens cannot be empty."
     echo ""
     echo "   Debug info:"
     echo "   - TEACHER_TOKEN length: ${#TEACHER_TOKEN}"
     echo "   - STUDENT_TOKEN length: ${#STUDENT_TOKEN}"
-    echo "   - First 100 chars of your paste: ${TOKEN_OUTPUT:0:100}..."
     echo ""
     read -p "Continue without tokens? (tabs will open but connection will fail) (y/n) " -n 1 -r
     echo
@@ -137,7 +135,7 @@ if [ -z "$TEACHER_TOKEN" ] || [ -z "$STUDENT_TOKEN" ]; then
     STUDENT_TOKEN=""
 else
     echo ""
-    echo "✅ Tokens parsed successfully!"
+    echo "✅ Tokens received!"
     echo "   Teacher token: ${#TEACHER_TOKEN} characters"
     echo "   Student token: ${#STUDENT_TOKEN} characters"
 fi
