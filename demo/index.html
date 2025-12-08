@@ -525,6 +525,7 @@
             if (channel) {
                 channel.leave();
                 channel = null;
+                handlersSetup = false; // Reset flag when leaving
             }
             currentRoomId = null;
             currentStudentId = null;
@@ -538,6 +539,12 @@
         // Setup channel handlers
         function setupChannelHandlers() {
             if (!channel) return;
+            
+            // Only set up handlers once per channel instance
+            if (handlersSetup) {
+                console.log("Handlers already set up, skipping...");
+                return;
+            }
             
             // Remove any existing handlers first to prevent duplicates
             channel.off("student_note");
@@ -565,9 +572,13 @@
             // Handle beat events
             channel.on("beat", (payload) => {
                 const beatNumber = payload.beat || 0;
+                console.log("Beat event received:", beatNumber);
                 updateBeatIndicator(beatNumber);
                 // Don't log beats - too frequent and clutters the log
             });
+            
+            handlersSetup = true;
+            console.log("Channel handlers set up");
             
             // Handle tempo changes
             channel.on("tempo_changed", (payload) => {
