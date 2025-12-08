@@ -646,8 +646,8 @@
             const indicator = document.getElementById("beat-indicator");
             const beatCount = document.getElementById("beat-count");
             
-            // Show beat number mod 4 (for 4/4 time signature)
-            const beatInMeasure = (beatNumber % 4);
+            // Show beat number mod 4 (for 4/4 time signature), starting from 1
+            const beatInMeasure = (beatNumber % 4) + 1;
             beatCount.textContent = `Beat: ${beatInMeasure} (total: ${beatNumber})`;
             
             indicator.style.backgroundColor = "#4CAF50";
