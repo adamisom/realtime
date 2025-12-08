@@ -73,9 +73,9 @@ Then just click "Join Room" in each tab and start testing!
    - ✅ Verify: Note plays in all tabs, log shows "Note received"
 
 5. **Test tempo change:**
-   - In teacher tab, move tempo slider to 140
+   - In teacher tab, move tempo slider to 60
    - Click "Set Tempo"
-   - ✅ Verify: All tabs show BPM: 140, beat interval changes
+   - ✅ Verify: All tabs show BPM: 60, beat interval changes
 
 **✅ Success Criteria:**
 - Both users can join same room
@@ -98,7 +98,7 @@ Then just click "Join Room" in each tab and start testing!
 - [ ] Check browser console for "Socket connected" message
 
 #### Test 2: Join Room (Valid)
-- [ ] Create room in IEx: `{:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", "test-tenant", bpm: 120)`
+- [ ] Create room in IEx: `{:ok, room_id} = Realtime.Music.SessionManager.create_room("teacher-1", "test-tenant", bpm: 40)`
 - [ ] Enter room ID in demo
 - [ ] Enter student ID: `student-1`
 - [ ] Click "Join Room"
@@ -170,7 +170,7 @@ Then just click "Join Room" in each tab and start testing!
 - [ ] Join same room
 - [ ] ✅ Verify: Both tabs show same beat number
 - [ ] ✅ Verify: Both indicators flash simultaneously
-- [ ] ✅ Verify: Beat intervals match (e.g., ~500ms for 120 BPM)
+- [ ] ✅ Verify: Beat intervals match (e.g., ~1500ms for 40 BPM)
 
 ### Audio Synthesis
 
@@ -202,11 +202,11 @@ Then just click "Join Room" in each tab and start testing!
 
 #### Test 14: Tempo Control (Teacher)
 - [ ] Join as teacher
-- [ ] Move tempo slider to 140
-- [ ] ✅ Verify: Tempo value updates to 140
+- [ ] Move tempo slider to 60
+- [ ] ✅ Verify: Tempo value updates to 60
 - [ ] Click "Set Tempo"
-- [ ] ✅ Verify: Log shows "Tempo set to 140 BPM"
-- [ ] ✅ Verify: BPM display updates to 140
+- [ ] ✅ Verify: Log shows "Tempo set to 60 BPM"
+- [ ] ✅ Verify: BPM display updates to 60
 - [ ] ✅ Verify: Beat interval changes (faster)
 
 #### Test 15: Tempo Control (Student - Should Fail)
@@ -218,7 +218,7 @@ Then just click "Join Room" in each tab and start testing!
 #### Test 16: Tempo Propagation
 - [ ] Open 2 tabs: teacher and student
 - [ ] Join same room
-- [ ] Teacher changes tempo to 140
+- [ ] Teacher changes tempo to 60
 - [ ] ✅ Verify: Student tab receives tempo_changed event
 - [ ] ✅ Verify: Student BPM display updates
 - [ ] ✅ Verify: Both tabs' beat intervals match new tempo
@@ -277,7 +277,7 @@ Then just click "Join Room" in each tab and start testing!
 
 #### Test 23: Rapid Tempo Changes
 - [ ] Join as teacher
-- [ ] Rapidly change tempo: 120 → 140 → 100 → 150
+- [ ] Rapidly change tempo: 40 → 60 → 50 → 70
 - [ ] ✅ Verify: Each change propagates correctly
 - [ ] ✅ Verify: Beat intervals update smoothly
 - [ ] ✅ Verify: No errors or crashes
