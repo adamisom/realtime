@@ -50,7 +50,12 @@ A single-file HTML demo application that demonstrates the music extension's real
 
 **Socket won't connect:**
 - Ensure server is running: `mix phx.server`
-- Check WebSocket URL in code matches your server
+- **Important:** Add tenant to `/etc/hosts` for `.localhost` subdomain resolution:
+  ```bash
+  echo "127.0.0.1 test-tenant.localhost" | sudo tee -a /etc/hosts
+  ```
+- Check browser console for WebSocket errors
+- Verify JWT token is valid (generate with `mix run demo/demo-generate-token.exs test-tenant teacher`)
 
 **Can't join room:**
 - Verify room exists (create in IEx)
@@ -59,6 +64,11 @@ A single-file HTML demo application that demonstrates the music extension's real
 **No audio:**
 - Click anywhere on the page first (browser autoplay policy)
 - Check browser console for errors
+
+**JWT Token Issues:**
+- Generate a real token: `mix run demo/demo-generate-token.exs test-tenant teacher`
+- Copy the token and add `?token=YOUR_TOKEN` to the demo URL
+- Or store in browser localStorage: `localStorage.setItem('demo_jwt_token', 'YOUR_TOKEN')`
 
 ## JWT Token Generation
 

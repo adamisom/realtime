@@ -227,6 +227,8 @@
         // Get tenant from URL or use default
         const urlParams = new URLSearchParams(window.location.search);
         const tenantId = urlParams.get('tenant_id') || 'test-tenant';
+        // Server requires tenant in hostname for multi-tenant routing
+        // If this doesn't work, add to /etc/hosts: 127.0.0.1 test-tenant.localhost
         const WS_URL = `ws://${tenantId}.localhost:4000/socket/websocket?vsn=2.0.0`;
         let socket = null;
         let channel = null;
@@ -256,16 +258,44 @@
 
         let keysPressed = new Set();
 
-        // JWT token generation (simplified for demo)
+        // JWT token - get from URL param, localStorage, or generate placeholder
+        let cachedToken = null;
+        
         function generateJWT(role = "student") {
+            // Check if we have a token in URL params (highest priority)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromUrl = urlParams.get('token');
+            if (tokenFromUrl) {
+                cachedToken = tokenFromUrl;
+                console.log('Using JWT token from URL parameter');
+                return tokenFromUrl;
+            }
+            
+            // Check localStorage
+            const storedToken = localStorage.getItem('demo_jwt_token');
+            if (storedToken) {
+                cachedToken = storedToken;
+                console.log('Using JWT token from localStorage');
+                return storedToken;
+            }
+            
+            // For now, use a placeholder - user needs to generate real token
+            // This will fail authentication but allows connection attempt
             const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
             const payload = btoa(JSON.stringify({
                 role: role,
                 exp: Math.floor(Date.now() / 1000) + 3600,
                 iat: Math.floor(Date.now() / 1000)
             }));
-            const signature = btoa("demo-signature");
-            return `${header}.${payload}.${signature}`;
+            const signature = btoa("demo-signature-placeholder");
+            const placeholder = `${header}.${payload}.${signature}`;
+            
+            console.warn('⚠️ Using placeholder JWT token (will fail authentication)');
+            console.warn('Generate a real token in IEx:');
+            console.warn('  tenant = Realtime.Api.get_tenant_by_external_id("test-tenant")');
+            console.warn('  jwt = Generators.generate_jwt_token(tenant, %{role: "' + role + '", exp: System.system_time(:second) + 3600})');
+            console.warn('Then add ?token=YOUR_TOKEN to the URL');
+            return placeholder;
         }
 
         // Logging
@@ -335,6 +365,9 @@
             
             socket.onError((error) => {
                 log("Socket error", error);
+                console.error("WebSocket error details:", error);
+                console.error("WebSocket URL:", WS_URL);
+                console.error("Token (first 20 chars):", token.substring(0, 20) + "...");
                 updateConnectionStatus(false);
             });
             
@@ -342,8 +375,29 @@
             socket.onMessage((event, payload, ref) => {
                 if (event === "phx_error") {
                     log("Phoenix error", payload);
+                    console.error("Phoenix error details:", payload);
                 }
             });
+            
+            // Log connection state
+            // Additional connection debugging
+            if (socket.conn) {
+                socket.conn.onerror = (error) => {
+                    log("Connection error", error);
+                    console.error("Connection error:", error);
+                    console.error("This might be due to:");
+                    console.error("1. .localhost subdomain not resolving - add to /etc/hosts: 127.0.0.1 test-tenant.localhost");
+                    console.error("2. Invalid JWT token - generate with: mix run demo/demo-generate-token.exs test-tenant teacher");
+                };
+                
+                socket.conn.onclose = (event) => {
+                    log("Connection closed", { code: event.code, reason: event.reason });
+                    console.log("Connection closed:", event.code, event.reason);
+                    if (event.code === 1006) {
+                        console.error("Abnormal closure - check if test-tenant.localhost resolves");
+                    }
+                };
+            }
         }
 
         // Join room

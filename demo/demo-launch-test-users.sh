@@ -1,12 +1,15 @@
 #!/bin/bash
 # Launch multiple browser tabs for testing with different users
-# Usage: ./demo/demo-launch-test-users.sh [room_id] [demo_url]
-# Example: ./demo/demo-launch-test-users.sh MUSIC-1234 file:///path/to/demo/index.html
+# Usage: ./demo/demo-launch-test-users.sh [room_id] [demo_url] [tenant_id] [teacher_token] [student_token]
+# Example: ./demo/demo-launch-test-users.sh MUSIC-1234 http://localhost:8080/index.html test-tenant teacher_token student_token
 
 set -e
 
 ROOM_ID="${1:-}"
 DEMO_URL="${2:-}"
+TENANT_ID="${3:-test-tenant}"
+TEACHER_TOKEN="${4:-}"
+STUDENT_TOKEN="${5:-}"
 
 # Get demo URL - use provided URL or default to HTTP server
 if [ -z "$DEMO_URL" ]; then
@@ -23,7 +26,7 @@ if [ -z "$DEMO_URL" ]; then
             echo "   cd demo && python3 -m http.server 8080"
         else
             echo "❌ Error: demo/index.html not found at $DEMO_FILE"
-            echo "Usage: $0 [room_id] [demo_url] [tenant_id]"
+            echo "Usage: $0 [room_id] [demo_url] [tenant_id] [teacher_token] [student_token]"
             exit 1
         fi
     fi
@@ -80,7 +83,16 @@ open_tab() {
     local role=$1
     local user_id=$2
     local tenant_id="${3:-test-tenant}"
-    local url="${DEMO_URL}?room_id=${ROOM_ID}&user_id=${user_id}&role=${role}&tenant_id=${tenant_id}"
+    local token=""
+    
+    # Use appropriate token based on role
+    if [ "$role" = "teacher" ] && [ -n "$TEACHER_TOKEN" ]; then
+        token="&token=${TEACHER_TOKEN}"
+    elif [ "$role" = "student" ] && [ -n "$STUDENT_TOKEN" ]; then
+        token="&token=${STUDENT_TOKEN}"
+    fi
+    
+    local url="${DEMO_URL}?room_id=${ROOM_ID}&user_id=${user_id}&role=${role}&tenant_id=${tenant_id}${token}"
     
     if [[ "$OSTYPE" == "darwin"* ]]; then
         "$OPEN_CMD" "$BROWSER" "$url" 2>/dev/null || open "$url"
@@ -90,9 +102,6 @@ open_tab() {
     
     sleep 0.5  # Small delay between opens
 }
-
-# Get tenant ID (default to test-tenant)
-TENANT_ID="${3:-test-tenant}"
 
 # Launch users
 echo "👨‍🏫 Opening teacher..."
@@ -116,6 +125,12 @@ echo "   - 1 teacher (teacher-1)"
 echo "   - 4 students (student-1 through student-4)"
 echo ""
 echo "📋 Room ID: $ROOM_ID"
+if [ -n "$TEACHER_TOKEN" ] && [ -n "$STUDENT_TOKEN" ]; then
+    echo "   ✅ JWT tokens included in URLs"
+else
+    echo "   ⚠️  No JWT tokens provided - tabs will use placeholder tokens"
+    echo "   💡 Generate tokens in IEx and pass as 4th and 5th arguments"
+fi
 echo ""
 echo "💡 The demo should auto-fill room ID and user ID from URL parameters."
 echo "   If not, manually enter:"

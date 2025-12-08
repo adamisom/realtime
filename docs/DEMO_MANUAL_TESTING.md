@@ -15,17 +15,19 @@ make dev_db
 psql -h localhost -U postgres -c "SELECT 1;" > /dev/null 2>&1 || echo "Database not running"
 ```
 
-**Ensure server is running:**
+**Ensure server is running (recommended: use IEx for easier room/token creation):**
 ```bash
-# Start server (in separate terminal)
-mix phx.server
-
-# Or with IEx console
+# Start server with IEx console (recommended for testing)
 iex -S mix phx.server
+
+# Or start server without IEx
+mix phx.server
 
 # Verify server is up
 curl http://localhost:4000/healthcheck || echo "Server not running"
 ```
+
+**Note:** Using `iex -S mix phx.server` is recommended because you can create rooms and generate tokens directly in the same console.
 
 ### Automated Setup (Recommended)
 

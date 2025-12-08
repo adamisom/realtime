@@ -81,9 +81,30 @@ echo ""
 echo "✅ Room created: $ROOM_ID"
 echo ""
 
+# Generate JWT tokens
+echo "🔑 Generating JWT tokens..."
+echo ""
+echo "💡 Run this SINGLE command in your IEx console, then paste the output here:"
+echo ""
+echo "   tenant = Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\"); teacher_jwt = Generators.generate_jwt_token(tenant, %{role: \"teacher\", exp: System.system_time(:second) + 3600}); student_jwt = Generators.generate_jwt_token(tenant, %{role: \"student\", exp: System.system_time(:second) + 3600}); IO.puts(\"TEACHER_TOKEN=\" <> teacher_jwt); IO.puts(\"STUDENT_TOKEN=\" <> student_jwt)"
+echo ""
+read -p "Paste the output (both TEACHER_TOKEN= and STUDENT_TOKEN= lines): " TOKEN_OUTPUT
+
+TEACHER_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "TEACHER_TOKEN=" | sed 's/TEACHER_TOKEN=//')
+STUDENT_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "STUDENT_TOKEN=" | sed 's/STUDENT_TOKEN=//')
+
+if [ -z "$TEACHER_TOKEN" ] || [ -z "$STUDENT_TOKEN" ]; then
+    echo "⚠️  Warning: Could not parse tokens. Tabs will open without tokens."
+    echo "   You can add tokens manually to URLs later."
+    TEACHER_TOKEN=""
+    STUDENT_TOKEN=""
+else
+    echo "✅ Tokens parsed successfully"
+fi
+
 # Launch test users
 echo "🚀 Launching test users..."
-./demo/demo-launch-test-users.sh "$ROOM_ID" "http://localhost:$HTTP_PORT/index.html" "$TENANT_ID"
+./demo/demo-launch-test-users.sh "$ROOM_ID" "http://localhost:$HTTP_PORT/index.html" "$TENANT_ID" "$TEACHER_TOKEN" "$STUDENT_TOKEN"
 
 echo ""
 echo "✨ Setup complete!"
