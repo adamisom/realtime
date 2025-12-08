@@ -227,11 +227,12 @@
         // Get tenant from URL or use default
         const urlParams = new URLSearchParams(window.location.search);
         const tenantId = urlParams.get('tenant_id') || 'test-tenant';
-        // Server requires tenant in hostname for multi-tenant routing
+        // Try subdomain first, fallback to localhost with tenant in params
         // Phoenix Socket adds /websocket automatically, so we just use /socket
-        // If this doesn't work, add to /etc/hosts: 127.0.0.1 test-tenant.localhost
-        // Or try: 127.0.0.1 test-tenant.localhost (then restart browser)
-        const WS_URL = `ws://${tenantId}.localhost:4000/socket`;
+        const USE_SUBDOMAIN = false; // Set to true if subdomain works
+        const WS_URL = USE_SUBDOMAIN 
+            ? `ws://${tenantId}.localhost:4000/socket`
+            : `ws://localhost:4000/socket?tenant_id=${tenantId}`;
         let socket = null;
         let channel = null;
         let currentRole = "student";
