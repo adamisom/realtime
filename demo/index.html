@@ -228,8 +228,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const tenantId = urlParams.get('tenant_id') || 'test-tenant';
         // Server requires tenant in hostname for multi-tenant routing
+        // Phoenix Socket adds /websocket automatically, so we just use /socket
         // If this doesn't work, add to /etc/hosts: 127.0.0.1 test-tenant.localhost
-        const WS_URL = `ws://${tenantId}.localhost:4000/socket/websocket?vsn=2.0.0`;
+        // Or try: 127.0.0.1 test-tenant.localhost (then restart browser)
+        const WS_URL = `ws://${tenantId}.localhost:4000/socket`;
         let socket = null;
         let channel = null;
         let currentRole = "student";
@@ -267,7 +269,8 @@
             const tokenFromUrl = urlParams.get('token');
             if (tokenFromUrl) {
                 cachedToken = tokenFromUrl;
-                console.log('Using JWT token from URL parameter');
+                console.log('✅ Using JWT token from URL parameter (length:', tokenFromUrl.length, ')');
+                console.log('   Token preview:', tokenFromUrl.substring(0, 30) + '...');
                 return tokenFromUrl;
             }
             
@@ -338,8 +341,11 @@
                 socket.disconnect();
             }
             
+            // Phoenix Socket automatically adds /websocket to the path
+            // So we use /socket and it becomes /socket/websocket
             socket = new Phoenix.Socket(WS_URL, {
                 params: { apikey: token },
+                vsn: "2.0.0",
                 logger: (kind, msg, data) => {
                     log(`${kind}: ${msg}`, data);
                 }
@@ -367,7 +373,14 @@
                 log("Socket error", error);
                 console.error("WebSocket error details:", error);
                 console.error("WebSocket URL:", WS_URL);
-                console.error("Token (first 20 chars):", token.substring(0, 20) + "...");
+                console.error("Token being used:", token ? token.substring(0, 50) + '...' : 'NO TOKEN');
+                console.error("Troubleshooting:");
+                console.error("1. Ensure tenant exists in database (run IEx command from setup script)");
+                console.error("2. Restart browser to pick up /etc/hosts changes");
+                console.error("3. Verify /etc/hosts: grep test-tenant.localhost /etc/hosts");
+                console.error("4. Test DNS: ping test-tenant.localhost");
+                console.error("5. Check server logs for 'Tenant not found' or 'Invalid JWT' errors");
+                console.error("6. Ensure server is running: curl http://localhost:4000/healthcheck");
                 updateConnectionStatus(false);
             });
             
@@ -385,16 +398,22 @@
                 socket.conn.onerror = (error) => {
                     log("Connection error", error);
                     console.error("Connection error:", error);
-                    console.error("This might be due to:");
-                    console.error("1. .localhost subdomain not resolving - add to /etc/hosts: 127.0.0.1 test-tenant.localhost");
-                    console.error("2. Invalid JWT token - generate with: mix run demo/demo-generate-token.exs test-tenant teacher");
+                    console.error("WebSocket URL being used:", socket.endPointURL());
+                    console.error("Troubleshooting:");
+                    console.error("1. Restart browser to pick up /etc/hosts changes");
+                    console.error("2. Verify /etc/hosts: grep test-tenant.localhost /etc/hosts");
+                    console.error("3. Test DNS: ping test-tenant.localhost");
+                    console.error("4. Invalid JWT token - check token is valid");
                 };
                 
                 socket.conn.onclose = (event) => {
                     log("Connection closed", { code: event.code, reason: event.reason });
                     console.log("Connection closed:", event.code, event.reason);
                     if (event.code === 1006) {
-                        console.error("Abnormal closure - check if test-tenant.localhost resolves");
+                        console.error("Abnormal closure (1006) - possible causes:");
+                        console.error("- Browser DNS cache (restart browser)");
+                        console.error("- .localhost subdomain not resolving");
+                        console.error("- Network/firewall blocking WebSocket");
                     }
                 };
             }

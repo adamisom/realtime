@@ -88,11 +88,16 @@ open_tab() {
     # Use appropriate token based on role
     if [ "$role" = "teacher" ] && [ -n "$TEACHER_TOKEN" ]; then
         token="&token=${TEACHER_TOKEN}"
+        echo "   Using teacher token (first 20 chars): ${TEACHER_TOKEN:0:20}..."
     elif [ "$role" = "student" ] && [ -n "$STUDENT_TOKEN" ]; then
         token="&token=${STUDENT_TOKEN}"
+        echo "   Using student token (first 20 chars): ${STUDENT_TOKEN:0:20}..."
+    else
+        echo "   ⚠️  No token provided for $role - will use placeholder"
     fi
     
     local url="${DEMO_URL}?room_id=${ROOM_ID}&user_id=${user_id}&role=${role}&tenant_id=${tenant_id}${token}"
+    echo "   Opening: ${url:0:100}..." # Show first 100 chars of URL
     
     if [[ "$OSTYPE" == "darwin"* ]]; then
         "$OPEN_CMD" "$BROWSER" "$url" 2>/dev/null || open "$url"
@@ -103,26 +108,23 @@ open_tab() {
     sleep 0.5  # Small delay between opens
 }
 
-# Launch users
+# Launch users (for now, just 1 tab for testing)
 echo "👨‍🏫 Opening teacher..."
 open_tab "teacher" "teacher-1" "$TENANT_ID"
 
-echo "👨‍🎓 Opening student 1..."
-open_tab "student" "student-1" "$TENANT_ID"
-
-echo "👨‍🎓 Opening student 2..."
-open_tab "student" "student-2" "$TENANT_ID"
-
-echo "👨‍🎓 Opening student 3..."
-open_tab "student" "student-3" "$TENANT_ID"
-
-echo "👨‍🎓 Opening student 4..."
-open_tab "student" "student-4" "$TENANT_ID"
+# Uncomment these when ready to test with multiple users:
+# echo "👨‍🎓 Opening student 1..."
+# open_tab "student" "student-1" "$TENANT_ID"
+# echo "👨‍🎓 Opening student 2..."
+# open_tab "student" "student-2" "$TENANT_ID"
+# echo "👨‍🎓 Opening student 3..."
+# open_tab "student" "student-3" "$TENANT_ID"
+# echo "👨‍🎓 Opening student 4..."
+# open_tab "student" "student-4" "$TENANT_ID"
 
 echo ""
-echo "✅ Launched 5 browser tabs:"
+echo "✅ Launched 1 browser tab:"
 echo "   - 1 teacher (teacher-1)"
-echo "   - 4 students (student-1 through student-4)"
 echo ""
 echo "📋 Room ID: $ROOM_ID"
 if [ -n "$TEACHER_TOKEN" ] && [ -n "$STUDENT_TOKEN" ]; then
