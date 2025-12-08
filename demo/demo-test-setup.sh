@@ -70,6 +70,8 @@ if [ -z "$ROOM_ID" ]; then
     echo "   Copy the room_id from the output (e.g., \"MUSIC-1234\")"
     echo ""
     read -p "Paste the room ID here: " ROOM_ID
+    # Strip quotes if present (e.g., "MUSIC-1234" -> MUSIC-1234)
+    ROOM_ID=$(echo "$ROOM_ID" | sed 's/^"//;s/"$//')
     echo ""
 fi
 
