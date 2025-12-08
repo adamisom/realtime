@@ -37,17 +37,20 @@ defmodule RealtimeWeb.UserSocket do
     %{uri: %{host: host}, x_headers: headers} = opts
 
     # Extract tenant from hostname, or fallback to socket params if hostname is localhost
-    external_id = case Database.get_external_id(host) do
-      {:ok, id} when id != "localhost" -> id
-      _ -> 
-        # Fallback: try to get tenant from socket params (passed by client)
-        tenant_from_params = Map.get(params, "tenant_id", "test-tenant")
-        Logger.info("Using tenant from params: #{tenant_from_params} (host was: #{host})")
-        tenant_from_params
-    end
-    
+    external_id =
+      case Database.get_external_id(host) do
+        {:ok, id} when id != "localhost" ->
+          id
+
+        _ ->
+          # Fallback: try to get tenant from socket params (passed by client)
+          tenant_from_params = Map.get(params, "tenant_id", "test-tenant")
+          Logger.info("Using tenant from params: #{tenant_from_params} (host was: #{host})")
+          tenant_from_params
+      end
+
     Logger.info("WebSocket connect attempt - tenant: #{external_id}, host: #{host}")
-    
+
     token = access_token(params, headers)
     log_level = log_level(params)
 

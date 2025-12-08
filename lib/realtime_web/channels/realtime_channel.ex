@@ -291,40 +291,40 @@ defmodule RealtimeWeb.RealtimeChannel do
       args = Map.put(postgres_extension, "id", tenant)
 
       case PostgresCdc.connect(module, args) do
-      {:ok, response} ->
-        case PostgresCdc.after_connect(module, response, postgres_extension, pg_change_params, tenant) do
-          {:ok, _response} ->
-            message = "Subscribed to PostgreSQL"
-            maybe_log_info(socket, message)
-            push_system_message("postgres_changes", socket, "ok", message, channel_name)
-            {:noreply, assign(socket, :pg_sub_ref, nil)}
+        {:ok, response} ->
+          case PostgresCdc.after_connect(module, response, postgres_extension, pg_change_params, tenant) do
+            {:ok, _response} ->
+              message = "Subscribed to PostgreSQL"
+              maybe_log_info(socket, message)
+              push_system_message("postgres_changes", socket, "ok", message, channel_name)
+              {:noreply, assign(socket, :pg_sub_ref, nil)}
 
-          {:error, {reason, error}} when reason in [:malformed_subscription_params, :subscription_insert_failed] ->
-            maybe_log_warning(socket, "RealtimeDisabledForConfiguration", error)
-            push_system_message("postgres_changes", socket, "error", error, channel_name)
-            # No point in retrying if the params are invalid
-            {:noreply, assign(socket, :pg_sub_ref, nil)}
+            {:error, {reason, error}} when reason in [:malformed_subscription_params, :subscription_insert_failed] ->
+              maybe_log_warning(socket, "RealtimeDisabledForConfiguration", error)
+              push_system_message("postgres_changes", socket, "error", error, channel_name)
+              # No point in retrying if the params are invalid
+              {:noreply, assign(socket, :pg_sub_ref, nil)}
 
-          error ->
-            maybe_log_warning(socket, "RealtimeDisabledForConfiguration", error)
+            error ->
+              maybe_log_warning(socket, "RealtimeDisabledForConfiguration", error)
 
-            push_system_message("postgres_changes", socket, "error", error, channel_name)
-        {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
-      end
+              push_system_message("postgres_changes", socket, "error", error, channel_name)
+              {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
+          end
 
-      nil ->
-        maybe_log_warning(
-          socket,
-          "ReconnectSubscribeToPostgres",
-          "Re-connecting to PostgreSQL with params: " <> inspect(pg_change_params)
-        )
+        nil ->
+          maybe_log_warning(
+            socket,
+            "ReconnectSubscribeToPostgres",
+            "Re-connecting to PostgreSQL with params: " <> inspect(pg_change_params)
+          )
 
-        {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe())}
+          {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe())}
 
-      error ->
-        maybe_log_error(socket, "UnableToSubscribeToPostgres", error)
-        push_system_message("postgres_changes", socket, "error", error, channel_name)
-        {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
+        error ->
+          maybe_log_error(socket, "UnableToSubscribeToPostgres", error)
+          push_system_message("postgres_changes", socket, "error", error, channel_name)
+          {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
       end
     else
       # No postgres extension configured, skip Postgres CDC subscription

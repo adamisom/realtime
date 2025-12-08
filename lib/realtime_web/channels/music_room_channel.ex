@@ -46,6 +46,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   Channel topic format: "music_room:ROOM_CODE"
   Example: "music_room:MUSIC-2024"
   """
+  @impl true
   def join("music_room:" <> room_id, params, socket) do
     tenant_id = socket.assigns.tenant
 
@@ -84,12 +85,19 @@ defmodule RealtimeWeb.MusicRoomChannel do
             # Subscribe to beat events from tempo server
             # Only subscribe if not already subscribed (prevent duplicates)
             tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
+
             socket =
               if Map.get(socket.assigns, :subscribed_to_beats) do
-                Logger.warning("Channel #{inspect(self())} already subscribed to beats for room #{room_id}, skipping duplicate subscription")
+                Logger.warning(
+                  "Channel #{inspect(self())} already subscribed to beats for room #{room_id}, skipping duplicate subscription"
+                )
+
                 socket
               else
-                Logger.info("Channel #{inspect(self())} subscribing to beat events for room #{room_id} (topic: #{tenant_topic})")
+                Logger.info(
+                  "Channel #{inspect(self())} subscribing to beat events for room #{room_id} (topic: #{tenant_topic})"
+                )
+
                 Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
                 assign(socket, :subscribed_to_beats, true)
               end
@@ -101,10 +109,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
             {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
 
             # Get list of connected students
-            connected_students = case SessionManager.get_room(room_id) do
-              {:ok, %{students: students}} -> students
-              _ -> []
-            end
+            connected_students =
+              case SessionManager.get_room(room_id) do
+                {:ok, %{students: students}} -> students
+                _ -> []
+              end
 
             # Send beat assignments after join completes
             send(self(), {:send_beat_assignments, assignments})
@@ -115,8 +124,9 @@ defmodule RealtimeWeb.MusicRoomChannel do
             end
 
             # Broadcast student joined event to all clients (so teacher can update their list)
+            # Must be done after join completes, so send to self and handle in handle_info/2
             if role == "student" do
-              broadcast!(socket, "student_joined", %{student_id: student_id})
+              send(self(), {:broadcast_student_joined, student_id})
             end
 
             {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments, students: connected_students}, socket}
@@ -130,6 +140,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
     end
   end
 
+  @impl true
   def handle_in("play_note", %{"midi" => midi} = payload, socket) do
     room_id = socket.assigns.room_id
     tenant_id = socket.assigns.tenant_id
@@ -764,6 +775,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
     end
   end
 
+  @impl true
   def handle_info({:beat, beat_number}, socket) do
     Logger.debug("Channel #{inspect(self())} received beat event: #{beat_number} for room #{socket.assigns.room_id}")
     room_id = socket.assigns.room_id
@@ -800,6 +812,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info({:broadcast_student_joined, student_id}, socket) do
+    broadcast!(socket, "student_joined", %{student_id: student_id})
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -811,17 +828,17 @@ defmodule RealtimeWeb.MusicRoomChannel do
       room_id = socket.assigns.room_id
       tenant_id = socket.assigns.tenant_id
       student_id = socket.assigns.student_id
-      
+
       Logger.info("Channel #{inspect(self())} terminating, leaving room #{room_id} (student: #{student_id})")
-      
+
       # Unsubscribe from beat events
       tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
       Phoenix.PubSub.unsubscribe(Realtime.PubSub, tenant_topic)
-      
-      # Leave room (remove student tracking)
-      SessionManager.leave_room(room_id, tenant_id, student_id)
+
+      # Note: Student tracking cleanup is handled automatically when room closes
+      # No explicit leave_room function needed - students are tracked in room state
     end
-    
+
     Logger.debug("MusicRoomChannel terminated: #{inspect(reason)}")
     :ok
   end
