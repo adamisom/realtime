@@ -1,20 +1,25 @@
 # Music Extension Video Demo Script
 
-## Opening (10 seconds)
+### Opening (15 seconds)
 **Show:** 5 browser tabs open
 **Say:** "I'm demonstrating the Music Extension for Supabase Realtime - a real-time collaborative music platform. I have 5 tabs open: one teacher and four students, all connected to the same music room."
 
-## 1. Synchronized Beat Counter (15 seconds)
+### Problem We're Solving
+
+**Say:** "Existing music education tools are either single-player or asynchronous - there's no way for a classroom of students to play music together in real-time with synchronized tempo and teacher controls."
+**Say:** "This demo shows the backend foundation work that enables real-time collaborative music games - the infrastructure for tempo synchronization, beat coordination, and teacher controls is complete, but the full game implementations would need to be continued to properly build out the five structured games designed for classroom use."
+
+## 1. Synchronized Beat Counter (10 seconds)
 **Action:** Point to beat indicators in multiple tabs
 **Say:** "Notice the beat counter - all tabs show the exact same beat number, synchronized in real-time. The beat indicator flashes simultaneously across all clients."
 
-## 2. Real-Time Note Broadcasting (20 seconds)
+## 2. Real-Time Note Broadcasting (15 seconds)
 **Action:** Play notes in one student tab (keyboard: A, S, D, F)
 **Say:** "When I play notes in this tab, they instantly broadcast to all other tabs. You can see them in the activity log and hear them play in real-time across all clients."
 **Action:** Play notes in a different student tab
 **Say:** "Multiple students can play simultaneously, and everyone hears everything in sync."
 
-## 3. Teacher Tempo Control (15 seconds)
+## 3. Teacher Tempo Control (10 seconds)
 **Action:** In teacher tab, move tempo slider to 60, click "Set Tempo"
 **Say:** "The teacher can adjust tempo. Watch - when I change it to 60 BPM, all tabs immediately update. The beat interval changes and everything stays synchronized."
 
@@ -26,12 +31,15 @@
 **Action:** Student-1 clicks "Leave Room", then rejoins
 **Say:** "When students leave and rejoin, the beat counter continues - it doesn't reset. The session state persists, and students can seamlessly rejoin."
 
+## What This Demonstrates (20 seconds)
+Read parts of the last section
+
 ## Closing (20 seconds)
 **Say:** "This demonstrates real-time synchronization, multi-user coordination, and teacher controls - all built on Supabase Realtime's WebSocket infrastructure. The system handles 20+ simultaneous users with sub-100ms latency."
 
-**Say:** "This was built in a large, production codebase using Elixir, Phoenix, and GenServer - technologies I learned specifically for this project. It shows I can quickly adapt to new tech stacks, work within existing architectures, and deliver production-ready features with proper testing, error handling, and documentation."
+**Say:** "This was built in a large, production codebase using Elixir, Phoenix, and GenServer - technologies I had never used prior to this project. It shows I can quickly adapt to new tech stacks, work within existing architectures, and deliver production-ready features."
 
-**Total: ~110 seconds**
+**Total: <120 seconds**
 
 ---
 
