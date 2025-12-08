@@ -379,6 +379,18 @@
                 log("✅ Socket connected successfully!");
                 console.log("✅ Connection established to:", socket.endPointURL());
                 updateConnectionStatus(true);
+                
+                // Auto-join if URL params are present
+                const params = getUrlParams();
+                if (params.room_id && params.user_id) {
+                    // Small delay to ensure socket is fully ready
+                    setTimeout(() => {
+                        if (!channel) { // Only auto-join if not already in a room
+                            log("Auto-joining room from URL parameters...");
+                            joinRoom(params.room_id, params.user_id);
+                        }
+                    }, 100);
+                }
             });
             
             socket.onClose(() => {
