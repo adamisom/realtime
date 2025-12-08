@@ -84,8 +84,12 @@ echo ""
 # Generate JWT tokens
 echo "🔑 Generating JWT tokens..."
 echo ""
-echo "💡 Run this SINGLE command in your IEx console, then paste the output here:"
+echo "💡 Run these commands in your IEx console, then paste the output:"
 echo ""
+echo "First, ensure encryption key is set (if not already):"
+echo "   Application.put_env(:realtime, :db_enc_key, \"1234567890123456\")"
+echo ""
+echo "Then run this to generate tokens:"
 echo "   alias Realtime.Crypto; tenant = case Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\") do nil -> {:ok, t} = Realtime.Api.create_tenant(%{external_id: \"$TENANT_ID\", name: \"$TENANT_ID\", jwt_secret: \"demo-secret-key-1234567890123456\"}); t -> t end; secret = Crypto.decrypt!(tenant.jwt_secret); signer = Joken.Signer.create(\"HS256\", secret); teacher_claims = %{role: \"teacher\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, teacher_claims); {:ok, teacher_jwt, _} = Joken.encode_and_sign(teacher_claims, signer); student_claims = %{role: \"student\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, student_claims); {:ok, student_jwt, _} = Joken.encode_and_sign(student_claims, signer); IO.puts(\"TEACHER_TOKEN=\" <> teacher_jwt); IO.puts(\"STUDENT_TOKEN=\" <> student_jwt)"
 echo ""
 read -p "Paste the output (both TEACHER_TOKEN= and STUDENT_TOKEN= lines): " TOKEN_OUTPUT
