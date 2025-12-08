@@ -1,6 +1,6 @@
 # Script to create a music room for testing
 # Usage: mix run demo/demo-create-room.exs [teacher_id] [tenant_id] [bpm]
-# Example: mix run demo/demo-create-room.exs teacher-1 test-tenant 120
+# Example: mix run demo/demo-create-room.exs teacher-1 test-tenant 40
 
 alias Realtime.Music.SessionManager
 
@@ -11,7 +11,7 @@ bpm =
   System.argv()
   |> Enum.at(2)
   |> (fn
-        nil -> 120
+        nil -> 40
         val -> String.to_integer(val)
       end).()
 

@@ -8,7 +8,7 @@ set -e
 
 TEACHER_ID="${1:-teacher-1}"
 TENANT_ID="${2:-test-tenant}"
-BPM="${3:-120}"
+BPM="${3:-40}"
 ROOM_ID="${4:-}"
 HTTP_PORT=8080
 
