@@ -241,6 +241,7 @@
         let currentRole = "student";
         let currentRoomId = null;
         let currentStudentId = null;
+        let currentUserId = null; // Track current user ID to filter out teacher
         let synth = null;
         let beatAnimationTimeout = null;
         let connectedStudents = [];
@@ -749,6 +750,10 @@
 
         // Student tracking
         function addStudent(studentId) {
+            // Don't add the teacher to the students list
+            if (currentRole === "teacher" && currentUserId && studentId === currentUserId) {
+                return;
+            }
             if (!connectedStudents.includes(studentId)) {
                 connectedStudents.push(studentId);
                 if (currentRole === "teacher") {
@@ -758,11 +763,20 @@
         }
 
         function updateStudentList(students) {
-            document.getElementById("student-count").textContent = students.length;
+            // Filter out the teacher from the students list
+            const filteredStudents = students.filter(studentId => {
+                // Exclude the teacher (current user if role is teacher)
+                if (currentRole === "teacher" && currentUserId && studentId === currentUserId) {
+                    return false;
+                }
+                return true;
+            });
+            
+            document.getElementById("student-count").textContent = filteredStudents.length;
             const listEl = document.getElementById("student-list");
             listEl.innerHTML = "";
             
-            students.forEach(studentId => {
+            filteredStudents.forEach(studentId => {
                 const studentDiv = document.createElement("div");
                 studentDiv.innerHTML = `
                     <strong>${studentId}</strong>
@@ -879,6 +893,7 @@
             }
             if (params.user_id) {
                 document.getElementById("student-id").value = params.user_id;
+                currentUserId = params.user_id; // Store current user ID
             }
             if (params.role) {
                 const roleRadio = document.querySelector(`input[name="role"][value="${params.role}"]`);
