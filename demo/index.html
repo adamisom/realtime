@@ -232,7 +232,7 @@
         const USE_SUBDOMAIN = false; // Set to true if subdomain works
         const WS_URL = USE_SUBDOMAIN 
             ? `ws://${tenantId}.localhost:4000/socket`
-            : `ws://localhost:4000/socket?tenant_id=${tenantId}`;
+            : `ws://localhost:4000/socket`;
         let socket = null;
         let channel = null;
         let currentRole = "student";
@@ -344,8 +344,9 @@
             
             // Phoenix Socket automatically adds /websocket to the path
             // So we use /socket and it becomes /socket/websocket
+            // Pass tenant_id in params so server can read it
             socket = new Phoenix.Socket(WS_URL, {
-                params: { apikey: token },
+                params: { apikey: token, tenant_id: tenantId },
                 vsn: "2.0.0",
                 logger: (kind, msg, data) => {
                     log(`${kind}: ${msg}`, data);

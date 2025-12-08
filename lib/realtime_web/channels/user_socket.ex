@@ -34,20 +34,14 @@ defmodule RealtimeWeb.UserSocket do
 
   @impl true
   def connect(params, socket, opts) do
-    %{uri: %{host: host, query: query}, x_headers: headers} = opts
+    %{uri: %{host: host}, x_headers: headers} = opts
 
-    # Extract tenant from hostname, or fallback to query param if hostname is localhost
+    # Extract tenant from hostname, or fallback to socket params if hostname is localhost
     external_id = case Database.get_external_id(host) do
       {:ok, id} when id != "localhost" -> id
       _ -> 
-        # Fallback: try to get tenant from query params
-        case query do
-          query_string when is_binary(query_string) ->
-            query_string
-            |> URI.decode_query()
-            |> Map.get("tenant_id", "test-tenant")
-          _ -> "test-tenant"
-        end
+        # Fallback: try to get tenant from socket params (passed by client)
+        Map.get(params, "tenant_id", "test-tenant")
     end
     
     token = access_token(params, headers)
