@@ -539,6 +539,13 @@
         function setupChannelHandlers() {
             if (!channel) return;
             
+            // Remove any existing handlers first to prevent duplicates
+            channel.off("student_note");
+            channel.off("beat");
+            channel.off("tempo_changed");
+            channel.off("beat_assignments");
+            channel.off("beat_assignment_updated");
+            
             // Handle incoming notes from other students
             channel.on("student_note", (payload) => {
                 if (currentRole === "teacher") {
