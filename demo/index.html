@@ -128,6 +128,9 @@
     <!-- Teacher Controls Section -->
     <div class="section" id="teacher-controls" style="display: none;">
         <h2>Teacher Controls</h2>
+        <p style="font-style: italic; color: #666; margin-bottom: 15px;">
+            Default 4/4 time; other time signatures to be implemented later.
+        </p>
         <div style="margin: 15px 0;">
             <label><strong>Tempo (BPM):</strong></label>
             <input type="range" id="tempo-slider" min="30" max="120" value="30" style="width: 200px;">
@@ -489,6 +492,10 @@
                     
                     if (currentRole === "teacher") {
                         document.getElementById("teacher-controls").style.display = "block";
+                        // Update beat assignments if provided in join response
+                        if (resp.assignments) {
+                            updateBeatAssignments(resp.assignments);
+                        }
                     } else {
                         document.getElementById("teacher-controls").style.display = "none";
                     }
@@ -603,6 +610,34 @@
             
             channel.on("beat_assignment_updated", (payload) => {
                 log("Beat assignment updated", payload);
+                // Update UI to show beat assignments
+                if (currentRole === "teacher" && payload.assignments) {
+                    updateBeatAssignments(payload.assignments);
+                }
+                // If student, show their assignment
+                if (currentRole === "student" && payload.student_id === currentStudentId) {
+                    if (payload.beat) {
+                        log(`Your assigned beat: ${payload.beat}`);
+                    } else {
+                        log("Your beat assignment was cleared");
+                    }
+                }
+            });
+            
+            // Handle connected students list (for teacher on join)
+            channel.on("connected_students", (payload) => {
+                if (currentRole === "teacher" && payload.students) {
+                    payload.students.forEach(studentId => {
+                        addStudent(studentId);
+                    });
+                }
+            });
+            
+            // Handle student joined event (for teacher when new student joins)
+            channel.on("student_joined", (payload) => {
+                if (currentRole === "teacher") {
+                    addStudent(payload.student_id);
+                }
             });
         }
 
@@ -611,7 +646,9 @@
             const indicator = document.getElementById("beat-indicator");
             const beatCount = document.getElementById("beat-count");
             
-            beatCount.textContent = `Beat: ${beatNumber}`;
+            // Show beat number mod 4 (for 4/4 time signature)
+            const beatInMeasure = (beatNumber % 4);
+            beatCount.textContent = `Beat: ${beatInMeasure} (total: ${beatNumber})`;
             
             indicator.style.backgroundColor = "#4CAF50";
             indicator.style.transform = "scale(1.2)";
@@ -737,8 +774,28 @@
                         <option value="4">Beat 4</option>
                     </select>
                     <button onclick="assignBeat('${studentId}')">Assign</button>
+                    <span id="assigned-${studentId}" style="margin-left: 10px; font-weight: bold; color: #4CAF50;"></span>
                 `;
                 listEl.appendChild(studentDiv);
+            });
+        }
+        
+        function updateBeatAssignments(assignments) {
+            // Update the UI to show current beat assignments
+            Object.keys(assignments).forEach(studentId => {
+                const assignedBeat = assignments[studentId];
+                const assignedEl = document.getElementById(`assigned-${studentId}`);
+                const selectEl = document.getElementById(`beat-${studentId}`);
+                
+                if (assignedEl && selectEl) {
+                    if (assignedBeat) {
+                        assignedEl.textContent = `→ Beat ${assignedBeat}`;
+                        selectEl.value = assignedBeat.toString();
+                    } else {
+                        assignedEl.textContent = "";
+                        selectEl.value = "";
+                    }
+                }
             });
         }
 

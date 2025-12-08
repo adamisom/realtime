@@ -100,10 +100,26 @@ defmodule RealtimeWeb.MusicRoomChannel do
             # Get current beat assignments
             {:ok, assignments} = SessionManager.get_beat_assignments(room_id)
 
+            # Get list of connected students
+            connected_students = case SessionManager.get_room(room_id) do
+              {:ok, %{students: students}} -> students
+              _ -> []
+            end
+
             # Send beat assignments after join completes
             send(self(), {:send_beat_assignments, assignments})
 
-            {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments}, socket}
+            # If teacher, send connected students list
+            if role == "teacher" do
+              send(self(), {:send_connected_students, connected_students})
+            end
+
+            # Broadcast student joined event to all clients (so teacher can update their list)
+            if role == "student" do
+              broadcast!(socket, "student_joined", %{student_id: student_id})
+            end
+
+            {:ok, %{room_id: room_id, bpm: room.bpm, assignments: assignments, students: connected_students}, socket}
 
           {:error, reason} ->
             {:error, %{reason: "Failed to join room: #{inspect(reason)}"}}
@@ -776,6 +792,11 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
   def handle_info({:send_beat_assignments, assignments}, socket) do
     push(socket, "beat_assignments", %{assignments: assignments})
+    {:noreply, socket}
+  end
+
+  def handle_info({:send_connected_students, students}, socket) do
+    push(socket, "connected_students", %{students: students})
     {:noreply, socket}
   end
 
