@@ -108,23 +108,22 @@ open_tab() {
     sleep 0.5  # Small delay between opens
 }
 
-# Launch users (for now, just 1 tab for testing)
+# Launch users
 echo "👨‍🏫 Opening teacher..."
 open_tab "teacher" "teacher-1" "$TENANT_ID"
-
-# Uncomment these when ready to test with multiple users:
-# echo "👨‍🎓 Opening student 1..."
-# open_tab "student" "student-1" "$TENANT_ID"
-# echo "👨‍🎓 Opening student 2..."
-# open_tab "student" "student-2" "$TENANT_ID"
-# echo "👨‍🎓 Opening student 3..."
-# open_tab "student" "student-3" "$TENANT_ID"
-# echo "👨‍🎓 Opening student 4..."
-# open_tab "student" "student-4" "$TENANT_ID"
+echo "👨‍🎓 Opening student 1..."
+open_tab "student" "student-1" "$TENANT_ID"
+echo "👨‍🎓 Opening student 2..."
+open_tab "student" "student-2" "$TENANT_ID"
+echo "👨‍🎓 Opening student 3..."
+open_tab "student" "student-3" "$TENANT_ID"
+echo "👨‍🎓 Opening student 4..."
+open_tab "student" "student-4" "$TENANT_ID"
 
 echo ""
-echo "✅ Launched 1 browser tab:"
+echo "✅ Launched 5 browser tabs:"
 echo "   - 1 teacher (teacher-1)"
+echo "   - 4 students (student-1, student-2, student-3, student-4)"
 echo ""
 echo "📋 Room ID: $ROOM_ID"
 if [ -n "$TEACHER_TOKEN" ] && [ -n "$STUDENT_TOKEN" ]; then
