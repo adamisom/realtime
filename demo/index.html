@@ -555,7 +555,7 @@
             channel.on("beat", (payload) => {
                 const beatNumber = payload.beat || 0;
                 updateBeatIndicator(beatNumber);
-                log(`Beat: ${beatNumber}`);
+                // Don't log beats - too frequent and clutters the log
             });
             
             // Handle tempo changes
