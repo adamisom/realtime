@@ -26,10 +26,12 @@
 **Action:** Student-1 clicks "Leave Room", then rejoins
 **Say:** "When students leave and rejoin, the beat counter continues - it doesn't reset. The session state persists, and students can seamlessly rejoin."
 
-## Closing (10 seconds)
+## Closing (20 seconds)
 **Say:** "This demonstrates real-time synchronization, multi-user coordination, and teacher controls - all built on Supabase Realtime's WebSocket infrastructure. The system handles 20+ simultaneous users with sub-100ms latency."
 
-**Total: ~90 seconds**
+**Say:** "This was built in a large, production codebase using Elixir, Phoenix, and GenServer - technologies I learned specifically for this project. It shows I can quickly adapt to new tech stacks, work within existing architectures, and deliver production-ready features with proper testing, error handling, and documentation."
+
+**Total: ~110 seconds**
 
 ---
 
