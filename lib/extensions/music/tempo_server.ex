@@ -97,12 +97,18 @@ defmodule Realtime.Music.TempoServer do
 
   @impl true
   def handle_cast(:start_clock, state) do
-    Logger.info("Starting clock for room #{state.room_id}")
+    if state.running do
+      # Clock already running, don't reset beat counter
+      Logger.debug("Clock already running for room #{state.room_id}, not restarting")
+      {:noreply, state}
+    else
+      Logger.info("Starting clock for room #{state.room_id}")
 
-    # Use schedule_beat which calculates from current time
-    timer_ref = schedule_beat(state.bpm)
+      # Use schedule_beat which calculates from current time
+      timer_ref = schedule_beat(state.bpm)
 
-    {:noreply, %{state | running: true, timer_ref: timer_ref, beat: 0}}
+      {:noreply, %{state | running: true, timer_ref: timer_ref, beat: 0}}
+    end
   end
 
   @impl true
