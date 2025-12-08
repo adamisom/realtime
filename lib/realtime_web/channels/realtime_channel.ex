@@ -286,9 +286,11 @@ defmodule RealtimeWeb.RealtimeChannel do
 
     Helpers.cancel_timer(pg_sub_ref)
 
-    args = Map.put(postgres_extension, "id", tenant)
+    # Only connect if postgres_extension is configured
+    if postgres_extension != %{} do
+      args = Map.put(postgres_extension, "id", tenant)
 
-    case PostgresCdc.connect(module, args) do
+      case PostgresCdc.connect(module, args) do
       {:ok, response} ->
         case PostgresCdc.after_connect(module, response, postgres_extension, pg_change_params, tenant) do
           {:ok, _response} ->
@@ -307,8 +309,8 @@ defmodule RealtimeWeb.RealtimeChannel do
             maybe_log_warning(socket, "RealtimeDisabledForConfiguration", error)
 
             push_system_message("postgres_changes", socket, "error", error, channel_name)
-            {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
-        end
+        {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
+      end
 
       nil ->
         maybe_log_warning(
@@ -323,6 +325,10 @@ defmodule RealtimeWeb.RealtimeChannel do
         maybe_log_error(socket, "UnableToSubscribeToPostgres", error)
         push_system_message("postgres_changes", socket, "error", error, channel_name)
         {:noreply, assign(socket, :pg_sub_ref, postgres_subscribe(5, 10))}
+      end
+    else
+      # No postgres extension configured, skip Postgres CDC subscription
+      {:noreply, assign(socket, :pg_sub_ref, nil)}
     end
   rescue
     error ->

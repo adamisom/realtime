@@ -92,7 +92,7 @@ defmodule RealtimeWeb.UserSocket do
           max_joins_per_second: max_joins_per_second,
           max_channels_per_client: max_channels_per_client
         },
-        postgres_extension: PostgresCdc.filter_settings(postgres_cdc_default, extensions),
+        postgres_extension: PostgresCdc.filter_settings(postgres_cdc_default, extensions) || %{},
         postgres_cdc_module: postgres_cdc_module,
         tenant: external_id,
         log_level: log_level,
