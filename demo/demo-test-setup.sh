@@ -106,19 +106,18 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "📋 Copy this command to your IEx console (where server is running):"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Application.put_env(:realtime, :db_enc_key, \"1234567890123456\"); alias Realtime.Crypto; tenant = case Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\") do nil -> case Realtime.Api.create_tenant(%{external_id: \"$TENANT_ID\", name: \"$TENANT_ID\", jwt_secret: \"demo-secret-key-1234567890123456\"}) do {:ok, t} -> t; error -> raise \"Failed to create tenant: #{inspect(error)}\" end; t -> t end; secret = Crypto.decrypt!(tenant.jwt_secret); signer = Joken.Signer.create(\"HS256\", secret); teacher_claims = %{role: \"teacher\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, teacher_claims); {:ok, teacher_jwt, _} = Joken.encode_and_sign(teacher_claims, signer); IO.puts(teacher_jwt)"
+echo "Application.put_env(:realtime, :db_enc_key, \"1234567890123456\"); alias Realtime.Crypto; tenant = case Realtime.Api.get_tenant_by_external_id(\"$TENANT_ID\") do nil -> case Realtime.Api.create_tenant(%{external_id: \"$TENANT_ID\", name: \"$TENANT_ID\", jwt_secret: \"demo-secret-key-1234567890123456\"}) do {:ok, t} -> t; error -> raise \"Failed to create tenant: #{inspect(error)}\" end; t -> t end; secret = Crypto.decrypt!(tenant.jwt_secret); signer = Joken.Signer.create(\"HS256\", secret); teacher_claims = %{role: \"teacher\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, teacher_claims); {:ok, teacher_jwt, _} = Joken.encode_and_sign(teacher_claims, signer); student_claims = %{role: \"student\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, student_claims); {:ok, student_jwt, _} = Joken.encode_and_sign(student_claims, signer); IO.puts(\"TEACHER_TOKEN=\" <> teacher_jwt); IO.puts(\"STUDENT_TOKEN=\" <> student_jwt)"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-read -p "Paste the TEACHER token (just the token, no prefix): " TEACHER_TOKEN
-TEACHER_TOKEN=$(echo "$TEACHER_TOKEN" | sed 's/^TEACHER_TOKEN=//' | tr -d '\r\n ')
+echo "📋 The output will show both tokens. Copy the TEACHER_TOKEN line:"
+read -p "Paste the TEACHER_TOKEN line (e.g., TEACHER_TOKEN=eyJ...): " TEACHER_TOKEN_LINE
+TEACHER_TOKEN=$(echo "$TEACHER_TOKEN_LINE" | sed 's/^TEACHER_TOKEN=//' | tr -d '\r\n ')
 
 echo ""
-echo "Now run this in IEx:"
-echo "student_claims = %{role: \"student\", exp: System.system_time(:second) + 3600, iat: System.system_time(:second)}; {:ok, _} = Joken.generate_claims(%{}, student_claims); {:ok, student_jwt, _} = Joken.encode_and_sign(student_claims, signer); IO.puts(student_jwt)"
-echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-read -p "Paste the STUDENT token (just the token, no prefix): " STUDENT_TOKEN
-STUDENT_TOKEN=$(echo "$STUDENT_TOKEN" | sed 's/^STUDENT_TOKEN=//' | tr -d '\r\n ')
+echo "📋 Now copy the STUDENT_TOKEN line from the same output:"
+read -p "Paste the STUDENT_TOKEN line (e.g., STUDENT_TOKEN=eyJ...): " STUDENT_TOKEN_LINE
+STUDENT_TOKEN=$(echo "$STUDENT_TOKEN_LINE" | sed 's/^STUDENT_TOKEN=//' | tr -d '\r\n ')
 
 if [ -z "$TEACHER_TOKEN" ] || [ -z "$STUDENT_TOKEN" ]; then
     echo ""
