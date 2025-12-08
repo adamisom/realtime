@@ -349,6 +349,10 @@
                 params: { apikey: token, tenant_id: tenantId },
                 vsn: "2.0.0",
                 logger: (kind, msg, data) => {
+                    // Filter out beat events - too frequent and clutter the log
+                    if (msg && msg.includes("beat")) {
+                        return; // Don't log beat events
+                    }
                     log(`${kind}: ${msg}`, data);
                 }
             });
