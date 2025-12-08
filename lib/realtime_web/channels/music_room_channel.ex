@@ -82,10 +82,19 @@ defmodule RealtimeWeb.MusicRoomChannel do
             end
 
             # Subscribe to beat events from tempo server
+            # Only subscribe if not already subscribed (prevent duplicates)
             tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
-            Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
+            socket =
+              if Map.get(socket.assigns, :subscribed_to_beats) do
+                Logger.warning("Channel #{inspect(self())} already subscribed to beats for room #{room_id}, skipping duplicate subscription")
+                socket
+              else
+                Logger.info("Channel #{inspect(self())} subscribing to beat events for room #{room_id} (topic: #{tenant_topic})")
+                Phoenix.PubSub.subscribe(Realtime.PubSub, tenant_topic)
+                assign(socket, :subscribed_to_beats, true)
+              end
 
-            # Start tempo clock
+            # Start tempo clock (the handler will check if already running and not reset beat counter)
             TempoServer.start_clock(room_id, tenant_id)
 
             # Get current beat assignments
@@ -740,6 +749,7 @@ defmodule RealtimeWeb.MusicRoomChannel do
   end
 
   def handle_info({:beat, beat_number}, socket) do
+    Logger.debug("Channel #{inspect(self())} received beat event: #{beat_number} for room #{socket.assigns.room_id}")
     room_id = socket.assigns.room_id
     tenant_id = socket.assigns.tenant_id
 
@@ -771,5 +781,27 @@ defmodule RealtimeWeb.MusicRoomChannel do
 
   def handle_info(_msg, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def terminate(reason, socket) do
+    # Clean up: unsubscribe from beat events and leave room
+    if Map.get(socket.assigns, :subscribed_to_beats) do
+      room_id = socket.assigns.room_id
+      tenant_id = socket.assigns.tenant_id
+      student_id = socket.assigns.student_id
+      
+      Logger.info("Channel #{inspect(self())} terminating, leaving room #{room_id} (student: #{student_id})")
+      
+      # Unsubscribe from beat events
+      tenant_topic = Tenants.tenant_topic(tenant_id, "music_room:#{room_id}", true)
+      Phoenix.PubSub.unsubscribe(Realtime.PubSub, tenant_topic)
+      
+      # Leave room (remove student tracking)
+      SessionManager.leave_room(room_id, tenant_id, student_id)
+    end
+    
+    Logger.debug("MusicRoomChannel terminated: #{inspect(reason)}")
+    :ok
   end
 end
