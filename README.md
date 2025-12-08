@@ -22,6 +22,16 @@
   </p>
 </p>
 
+## Quick Start: Testing the Music Extension Demo
+
+To test the music extension features yourself:
+
+1. **Read the manual testing guide:** See [`docs/DEMO_MANUAL_TESTING.md`](docs/DEMO_MANUAL_TESTING.md) for complete instructions
+2. **Quick setup:** Run `./demo/demo-test-setup.sh` for automated setup (creates room, generates tokens, opens browser tabs)
+3. **Prerequisites:** Make sure you've set `DB_ENC_KEY` and have the database/server running (see the testing guide for details)
+
+The demo includes real-time music room features like synchronized tempo, beat broadcasting, note playing, and teacher controls.
+
 ## Status
 
 ![GitHub License](https://img.shields.io/github/license/supabase/realtime)
