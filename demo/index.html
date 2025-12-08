@@ -241,6 +241,7 @@
         let synth = null;
         let beatAnimationTimeout = null;
         let connectedStudents = [];
+        let handlersSetup = false; // Track if handlers have been set up for current channel
 
         // Note mapping: keyboard key -> MIDI note
         const NOTE_MAP = {
