@@ -55,7 +55,7 @@ A single-file HTML demo application that demonstrates the music extension's real
   echo "127.0.0.1 test-tenant.localhost" | sudo tee -a /etc/hosts
   ```
 - Check browser console for WebSocket errors
-- Verify JWT token is valid (generate with `mix run demo/demo-generate-token.exs test-tenant teacher`)
+- Verify JWT token is valid (generate with `mix run demo/demo-generate-tokens.exs test-tenant`)
 
 **Can't join room:**
 - Verify room exists (create in IEx)
@@ -66,18 +66,18 @@ A single-file HTML demo application that demonstrates the music extension's real
 - Check browser console for errors
 
 **JWT Token Issues:**
-- Generate a real token: `mix run demo/demo-generate-token.exs test-tenant teacher`
-- Copy the token and add `?token=YOUR_TOKEN` to the demo URL
-- Or store in browser localStorage: `localStorage.setItem('demo_jwt_token', 'YOUR_TOKEN')`
+- Generate tokens: `mix run demo/demo-generate-tokens.exs test-tenant`
+- This generates both TEACHER_TOKEN and STUDENT_TOKEN
+- Or use the automated setup script: `./demo/demo-test-setup.sh`
 
 ## JWT Token Generation
 
 The demo includes a simplified JWT token generator. For a real token:
 
-**Option 1: Generate token via script**
+**Option 1: Generate tokens via script**
 ```bash
-mix run demo/generate-token.exs test-tenant teacher
-# Copy the token and update demo/index.html generateJWT function
+mix run demo/demo-generate-tokens.exs test-tenant
+# Outputs TEACHER_TOKEN and STUDENT_TOKEN
 ```
 
 **Option 2: Generate in IEx**
