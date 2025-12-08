@@ -6,6 +6,12 @@
 
 ### Prerequisites
 
+**Set encryption key (required for tenant operations):**
+```bash
+export DB_ENC_KEY=1234567890123456
+```
+> **Note:** This key must match the one used when creating tenants. Add this to your `~/.zshrc` or `~/.bashrc` to make it permanent. If you forget to export it and are using `iex -S mix phx.server`, you can set it in IEx: `Application.put_env(:realtime, :db_enc_key, "1234567890123456")`
+
 **Ensure database is running:**
 ```bash
 # Start database containers (if using Docker)
