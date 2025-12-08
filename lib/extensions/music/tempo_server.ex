@@ -61,7 +61,7 @@ defmodule Realtime.Music.TempoServer do
       room_id: room_id,
       tenant_id: tenant_id,
       bpm: bpm,
-      beat: 0,
+      beat: 1,
       running: false,
       timer_ref: nil
     }
@@ -107,7 +107,7 @@ defmodule Realtime.Music.TempoServer do
       # Use schedule_beat which calculates from current time
       timer_ref = schedule_beat(state.bpm)
 
-      {:noreply, %{state | running: true, timer_ref: timer_ref, beat: 0}}
+      {:noreply, %{state | running: true, timer_ref: timer_ref, beat: 1}}
     end
   end
 
