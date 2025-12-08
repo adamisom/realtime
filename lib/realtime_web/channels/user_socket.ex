@@ -41,8 +41,12 @@ defmodule RealtimeWeb.UserSocket do
       {:ok, id} when id != "localhost" -> id
       _ -> 
         # Fallback: try to get tenant from socket params (passed by client)
-        Map.get(params, "tenant_id", "test-tenant")
+        tenant_from_params = Map.get(params, "tenant_id", "test-tenant")
+        Logger.info("Using tenant from params: #{tenant_from_params} (host was: #{host})")
+        tenant_from_params
     end
+    
+    Logger.info("WebSocket connect attempt - tenant: #{external_id}, host: #{host}")
     
     token = access_token(params, headers)
     log_level = log_level(params)
@@ -98,9 +102,11 @@ defmodule RealtimeWeb.UserSocket do
 
       assigns = Map.from_struct(assigns)
 
+      Logger.info("WebSocket connection successful for tenant: #{external_id}")
       {:ok, assign(socket, assigns)}
     else
       nil ->
+        Logger.error("Tenant not found: #{external_id}")
         log_error("TenantNotFound", "Tenant not found: #{external_id}")
         {:error, :tenant_not_found}
 
@@ -132,6 +138,7 @@ defmodule RealtimeWeb.UserSocket do
         {:error, :too_many_joins}
 
       error ->
+        Logger.error("Error connecting to WebSocket: #{inspect(error)}")
         log_error("ErrorConnectingToWebsocket", error)
         error
     end
